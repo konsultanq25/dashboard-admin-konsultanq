@@ -1,97 +1,101 @@
 <template>
-  <Card class="mx-auto max-w-sm">
-    <CardHeader>
-      <CardTitle class="text-xl">Sign Up</CardTitle>
-      <CardDescription
-        >Enter your information to create an account</CardDescription
-      >
-    </CardHeader>
-    <CardContent>
-      <div class="grid gap-4">
-        <div class="grid gap-2">
-          <Label for="name">Full Name</Label>
-          <Input
-            id="name"
-            v-model="form.name"
-            type="text"
-            placeholder="Full Name"
-            required
-          />
-          <p class="text-red-500 text-sm">{{ errors.name }}</p>
-        </div>
-        <div class="grid gap-2">
-          <Label for="phone">Phone Number</Label>
-          <Input
-            id="phone"
-            v-model="form.phone"
-            type="text"
-            placeholder="+62857xxxxx"
-            required
-          />
-          <p class="text-red-500 text-sm">{{ errors.phone }}</p>
-        </div>
-        <div class="grid gap-2">
-          <Label for="email">Email</Label>
-          <Input
-            id="email"
-            v-model="form.email"
-            type="email"
-            placeholder="john@example.com"
-            required
-          />
-          <p class="text-red-500 text-sm">{{ errors.email }}</p>
-        </div>
-        <div class="grid gap-2">
-          <Label for="password">Password</Label>
-          <Input
-            id="password"
-            v-model="form.password"
-            type="password"
-            placeholder="******"
-          />
-          <p class="text-red-500 text-sm">{{ errors.password }}</p>
-        </div>
-        <div class="grid gap-2">
-          <Label for="password_confirmation">Confirmation Password</Label>
-          <Input
-            id="password_confirmation"
-            v-model="form.password_confirmation"
-            type="password"
-            placeholder="******"
-          />
-          <p class="text-red-500 text-sm">{{ errors.password_confirmation }}</p>
-        </div>
-        <div class="grid gap-2">
-          <Label for="roles">Select Roles & Permissions</Label>
-          <Select v-model="form.roles">
-            <SelectTrigger>
-              <SelectValue placeholder="Select Roles & Permissions" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>Select Roles & Permissions</SelectLabel>
-                <SelectItem
-                  v-for="(item, index) in data"
-                  :key="index"
-                  :value="item.id"
-                >
-                  {{ item.name }}
-                </SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <p class="text-red-500 text-sm">{{ errors.roles }}</p>
-        </div>
-        <Button @click="handleSubmit" type="button" class="w-full"
-          >Create an account</Button
+  <div class="flex items-center justify-center h-full">
+    <Card class="mx-auto max-w-sm">
+      <CardHeader>
+        <CardTitle class="text-xl">Sign Up</CardTitle>
+        <CardDescription
+          >Enter your information to create an account</CardDescription
         >
-      </div>
-      <div class="mt-4 text-center text-sm">
-        Already have an account?
-        <a href="/login" class="underline"> Sign in </a>
-      </div>
-    </CardContent>
-  </Card>
+      </CardHeader>
+      <CardContent>
+        <div class="grid gap-4">
+          <div class="grid gap-2">
+            <Label for="name">Full Name</Label>
+            <Input
+              id="name"
+              v-model="form.name"
+              type="text"
+              placeholder="Full Name"
+              required
+            />
+            <p class="text-red-500 text-sm">{{ errors.name }}</p>
+          </div>
+          <div class="grid gap-2">
+            <Label for="phone">Phone Number</Label>
+            <Input
+              id="phone"
+              v-model="form.phone"
+              type="text"
+              placeholder="+62857xxxxx"
+              required
+            />
+            <p class="text-red-500 text-sm">{{ errors.phone }}</p>
+          </div>
+          <div class="grid gap-2">
+            <Label for="email">Email</Label>
+            <Input
+              id="email"
+              v-model="form.email"
+              type="email"
+              placeholder="john@example.com"
+              required
+            />
+            <p class="text-red-500 text-sm">{{ errors.email }}</p>
+          </div>
+          <div class="grid gap-2">
+            <Label for="password">Password</Label>
+            <Input
+              id="password"
+              v-model="form.password"
+              type="password"
+              placeholder="******"
+            />
+            <p class="text-red-500 text-sm">{{ errors.password }}</p>
+          </div>
+          <div class="grid gap-2">
+            <Label for="password_confirmation">Confirmation Password</Label>
+            <Input
+              id="password_confirmation"
+              v-model="form.password_confirmation"
+              type="password"
+              placeholder="******"
+            />
+            <p class="text-red-500 text-sm">
+              {{ errors.password_confirmation }}
+            </p>
+          </div>
+          <div class="grid gap-2">
+            <Label for="roles">Select Roles & Permissions</Label>
+            <Select v-model="form.roles">
+              <SelectTrigger>
+                <SelectValue placeholder="Select Roles & Permissions" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Select Roles & Permissions</SelectLabel>
+                  <SelectItem
+                    v-for="(item, index) in data"
+                    :key="index"
+                    :value="item.id"
+                  >
+                    {{ item.name }}
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <p class="text-red-500 text-sm">{{ errors.roles }}</p>
+          </div>
+          <Button @click="handleSubmit" type="button" class="w-full"
+            >Create an account</Button
+          >
+        </div>
+        <div class="mt-4 text-center text-sm">
+          Already have an account?
+          <a href="/login" class="underline"> Sign in </a>
+        </div>
+      </CardContent>
+    </Card>
+  </div>
 
   <BaseLoading :loading="isLoading" message="Registering your account..." />
   <BaseDialog
@@ -105,12 +109,24 @@
 import type { Auth } from "~/@types";
 
 const config = useRuntimeConfig();
-const { data: roles } = await useFetch("/api/roles", {
-  headers: {
-    "x-api-key": config.apiKey,
-  },
+
+const data = ref([]);
+
+onMounted(async () => {
+  try {
+    const response = await $fetch("/api/roles", {
+      method: "get",
+      headers: {
+        "x-api-key": config.apiKey,
+      },
+    });
+
+    console.log(response.data);
+    data.value = response.data;
+  } catch (error) {
+    console.error(error);
+  }
 });
-const data = roles.value.data;
 
 const form = ref<Auth.Register>({
   name: "",

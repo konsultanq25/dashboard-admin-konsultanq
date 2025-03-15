@@ -1,0 +1,248 @@
+<script setup lang="ts">
+import { Button } from "@/components/ui/button";
+import { onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
+import { toast } from "~/components/ui/toast";
+
+const token = useCookie("session/token");
+const properties = ref([]);
+const isLoading = ref(true);
+const router = useRouter();
+const deletingId = ref<string | null>(null); // Menyimpan ID agen yang sedang dihapus
+const config = useRuntimeConfig();
+const currentPage = ref(1);
+const itemsPerPage = 10;
+const totalItems = ref(0);
+const totalPages = ref(1);
+
+const paginatedProperties = computed(() => properties.value);
+
+// Ambil daftar agen dari API
+const refreshProperties = async (page = 1) => {
+  isLoading.value = true;
+  try {
+    const response = await $fetch(`/api/properties?page=${page}`, {
+      method: "GET",
+      headers: {
+        "x-api-key": config.apiKey,
+      },
+    });
+
+    console.log("API Response:", response);
+
+    properties.value = response.data;
+    totalItems.value = response.meta?.total || 0;
+    totalPages.value = response.meta?.last_page || 1;
+    isLoading.value = false;
+  } catch (error) {
+    console.error(error);
+    isLoading.value = false;
+  }
+};
+
+// Panggil data saat komponen dimuat
+onMounted(refreshProperties);
+
+// Fungsi untuk menambah agen
+const tambahProperties = () => {
+  router.push("/properties/create");
+};
+
+watch(currentPage, (newPage) => {
+  refreshProperties(newPage);
+});
+
+const deleteProperties = async (properties_id: string) => {
+  deletingId.value = properties_id;
+
+  try {
+    const response = await $fetch(`/api/properties/${properties_id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token.value}`,
+      },
+    });
+
+    toast({
+      title: "Success",
+      description: "Agent deleted successfully.",
+    });
+
+    refreshProperties();
+  } catch (error) {
+    console.error(error);
+    toast({
+      title: "Error",
+      description: "Failed to delete agent.",
+      variant: "destructive",
+    });
+  } finally {
+    deletingId.value = null;
+  }
+};
+</script>
+
+<template>
+  <div class="py-8 flex flex-col gap-4 items-center w-full max-w-screen-2xl">
+    <div class="flex justify-end w-full">
+      <Button @click.prevent="tambahProperties">Tambah Properties</Button>
+    </div>
+
+    <!-- <pre>{{ properties }}</pre> -->
+
+    <Table class="rounded-2xl border">
+      <TableCaption>Daftar properti yang terdaftar.</TableCaption>
+      <TableHeader>
+        <TableRow>
+          <TableHead>No</TableHead>
+          <TableHead>Slug</TableHead>
+          <TableHead>Nama Properti</TableHead>
+          <TableHead>Deskripsi Properti</TableHead>
+          <TableHead>Harga Properti</TableHead>
+          <TableHead>Foto Properti</TableHead>
+          <TableHead>Foto Bukti Kepemilikan</TableHead>
+          <TableHead>Edit</TableHead>
+          <TableHead>Delete</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <template v-if="isLoading">
+          <TableRow v-for="n in 5" :key="n">
+            <TableCell
+              colspan="9"
+              class="animate-pulse bg-gray-200 h-6"
+            ></TableCell>
+          </TableRow>
+        </template>
+
+        <template v-else-if="properties && properties.length > 0">
+          <TableRow v-for="(item, index) in properties" :key="item.id">
+            <TableCell>{{ index + 1 }}</TableCell>
+            <TableCell>{{ item.slug }}</TableCell>
+            <TableCell>{{ item.title }}</TableCell>
+            <TableCell>{{ item.deskripsi }}</TableCell>
+            <TableCell>{{ item.harga }}</TableCell>
+            <TableCell>
+              <div class="flex gap-2">
+                <template v-if="Array.isArray(item.images)">
+                  <img
+                    v-for="(img, i) in item.images"
+                    :key="i"
+                    :src="`data:image/jpeg;base64,${img}`"
+                    class="w-16 h-16 object-cover rounded-md"
+                    alt="Property Image"
+                  />
+                </template>
+                <img
+                  v-else
+                  :src="`data:image/jpeg;base64,${item.image}`"
+                  class="w-16 h-16 object-cover rounded-md"
+                  alt="Property Image"
+                />
+              </div>
+            </TableCell>
+            <TableCell>
+              <div class="flex gap-2">
+                <template v-if="Array.isArray(item.upload_bukti_kepemilikan)">
+                  <img
+                    v-for="(img, i) in item.upload_bukti_kepemilikan"
+                    :key="i"
+                    :src="`data:image/jpeg;base64,${img}`"
+                    class="w-16 h-16 object-cover rounded-md"
+                    alt="Property Image"
+                  />
+                </template>
+                <img
+                  v-else
+                  :src="`data:image/jpeg;base64,${item.upload_bukti_kepemilikan}`"
+                  class="w-16 h-16 object-cover rounded-md"
+                  alt="Property Image"
+                />
+              </div>
+            </TableCell>
+            <TableCell>
+              <Button variant="outline" size="icon">
+                <Icon name="lucide:pencil" size="16" />
+              </Button>
+            </TableCell>
+            <TableCell>
+              <AlertDialog>
+                <AlertDialogTrigger as-child>
+                  <Button variant="destructive" size="icon">
+                    <Icon name="lucide:x" size="16" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Hapus Agen?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Anda yakin ingin menghapus agen ini? Tindakan ini tidak
+                      dapat dibatalkan.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Batal</AlertDialogCancel>
+                    <AlertDialogAction @click="deleteProperties(item.id)">
+                      <span v-if="deletingId === item.id">Loading...</span>
+                      <span v-else>Hapus</span>
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </TableCell>
+          </TableRow>
+        </template>
+
+        <template v-else>
+          <TableRow>
+            <TableCell colspan="6" class="text-center text-gray-500">
+              Tidak ada properti yang terdaftar.
+            </TableCell>
+          </TableRow>
+        </template>
+      </TableBody>
+    </Table>
+
+    <!-- Pagination -->
+    <Pagination
+      v-slot="{ page }"
+      :items-per-page="10"
+      :total="totalPages"
+      :default-page="currentPage"
+      show-edges
+    >
+      <PaginationList v-slot="{ items }" class="flex items-center gap-1">
+        <PaginationFirst @click="refreshProperties(1)" />
+        <PaginationPrev
+          @click="refreshProperties(currentPage > 1 ? currentPage - 1 : 1)"
+        />
+
+        <template v-for="(item, index) in items" :key="index">
+          <PaginationListItem
+            v-if="item.type === 'page'"
+            :value="item.value"
+            as-child
+          >
+            <Button
+              class="w-10 h-10 p-0"
+              :variant="item.value === currentPage ? 'default' : 'outline'"
+              @click="refreshProperties(item.value)"
+            >
+              {{ item.value }}
+            </Button>
+          </PaginationListItem>
+          <PaginationEllipsis v-else :key="item.type" :index="index" />
+        </template>
+
+        <PaginationNext
+          @click="
+            refreshProperties(
+              currentPage < totalPages ? currentPage + 1 : totalPages
+            )
+          "
+        />
+        <PaginationLast @click="refreshProperties(totalPages)" />
+      </PaginationList>
+    </Pagination>
+  </div>
+</template>

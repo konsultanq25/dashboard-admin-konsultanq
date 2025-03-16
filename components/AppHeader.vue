@@ -78,7 +78,13 @@ const logout = async () => {
       },
     });
 
-    token.value = null;
+    // Hapus token & data user dari cookie
+    const tokenCookie = useCookie("session/token");
+    const userCookie = useCookie("auth/user");
+    tokenCookie.value = null;
+    userCookie.value = null;
+
+    // Redirect ke halaman login
     router.push("/login");
   } catch (error) {
     console.error("Logout gagal", error);

@@ -56,6 +56,7 @@ const formSchema = toTypedSchema(
     upload_bukti_kepemilikan: z
       .array(z.string())
       .max(5, "You can upload up to 5 images"),
+    categories: z.string().min(1, "Please select a category"),
   })
 );
 
@@ -71,6 +72,7 @@ const { handleSubmit, defineField, errors, setFieldValue } = useForm({
     nama_pemilik: "",
     no_hp_pemilik: 628,
     upload_bukti_kepemilikan: [],
+    categories: "",
   },
 });
 
@@ -93,6 +95,36 @@ const updateImagesField = () => {
 const updateImagesFieldKepemilikan = () => {
   setFieldValue("upload_bukti_kepemilikan", upload_bukti_kepemilikan.value);
 };
+
+const config = useRuntimeConfig();
+
+// Keep this line
+const [categories, categoriesAttrs] = defineField("categories");
+
+// Remove this line as it's redundant
+// const selectedCategory = ref("");
+
+// Keep the categories array for dropdown options
+const category = ref([]);
+
+const getCategories = async () => {
+  try {
+    const response = await $fetch("/api/categories", {
+      method: "get",
+      headers: {
+        "x-api-key": config.apiKey,
+      },
+    });
+
+    category.value = response.data;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+onMounted(() => {
+  getCategories();
+});
 
 // Update the onFileChange function to properly handle image encoding
 const onFileChange = (event: Event) => {
@@ -137,7 +169,7 @@ const onFileChangeBuktiKepemilikan = (event: Event) => {
           // Store only the base64 part without the data URL prefix
           const base64Data = reader.result.split(",")[1];
           upload_bukti_kepemilikan.value.push(base64Data);
-          updateImagesField();
+          updateImagesFieldKepemilikan();
         }
       };
     });
@@ -226,6 +258,7 @@ const onSubmit = handleSubmit(async (values) => {
       nama_pemilik: namaPemilik.value,
       no_hp_pemilik: noHpPemilik.value,
       upload_bukti_kepemilikan: upload_bukti_kepemilikan.value,
+      categories: categories.value,
     };
 
     const requestBody = {
@@ -364,6 +397,29 @@ const onSubmit = handleSubmit(async (values) => {
           </div>
 
           <div>
+            <Label for="harga">Price</Label>
+            <Select v-model="categories" v-bind="categoriesAttrs">
+              <SelectTrigger>
+                <SelectValue placeholder="Select a Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Categories</SelectLabel>
+                  <SelectItem
+                    :value="item.name"
+                    v-for="item in category"
+                    :key="item.id"
+                  >
+                    {{ item.name }}
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <span class="text-red-500 text-sm">{{ errors.categories }}</span>
+            <span class="text-red-500 text-sm">{{ errors.harga }}</span>
+          </div>
+
+          <div>
             <Label>Facilities</Label>
             <div class="grid grid-cols-2 gap-2">
               <div
@@ -439,22 +495,22 @@ const onSubmit = handleSubmit(async (values) => {
                 <button
                   type="button"
                   class="absolute top-0 right-0 bg-red-500 text-white p-1 w-8 h-8 rounded-full"
-                  @click="removeImage(index)"
+                  @click="removeImageBuktiKepemilikan(index)"
                 >
                   <Icon name="material-symbols:cancel-outline" size="24" />
                 </button>
               </div>
             </div>
           </div>
-          <Button
-            @click.prevent="onSubmit"
-            class="w-full"
-            :disabled="isLoading"
-          >
-            <span v-if="isLoading">Processing...</span>
-            <span v-else>Submit</span>
-          </Button>
         </div>
+        <Button
+          @click.prevent="onSubmit"
+          class="w-full mt-8"
+          :disabled="isLoading"
+        >
+          <span v-if="isLoading">Processing...</span>
+          <span v-else>Submit</span>
+        </Button>
       </CardContent>
     </Card>
   </div>

@@ -4,10 +4,10 @@
       <NuxtImg src="/static/logo-konsultanq.png" width="150" />
     </SidebarHeader>
     <SidebarContent>
-      <NavMain :items="data.navMain" />
+      <NavMain :items="filteredNav" />
     </SidebarContent>
     <SidebarFooter>
-      <NavUser :user="data.user" />
+      <NavUser :user="user" />
     </SidebarFooter>
     <SidebarRail />
   </Sidebar>
@@ -15,7 +15,6 @@
 
 <script setup lang="ts">
 import type { SidebarProps } from "@/components/ui/sidebar";
-
 import NavMain from "@/components/NavMain.vue";
 import NavUser from "@/components/NavUser.vue";
 import {
@@ -25,126 +24,45 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
-
-import { BookOpen, Bot, Settings2, SquareTerminal } from "lucide-vue-next";
+import { SquareTerminal } from "lucide-vue-next";
+import { computed, onMounted } from "vue";
+import { useAuthStore } from "@/stores/auth";
 
 const props = withDefaults(defineProps<SidebarProps>(), {
   collapsible: "icon",
 });
 
-// This is sample data.
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "",
+const authStore = useAuthStore();
+
+// Pakai computed agar selalu mendapatkan state terbaru dari Pinia
+const user = computed(() => authStore.user || {});
+const roles = computed(() => user.value.roles || []);
+
+onMounted(() => {
+  console.log("User Data setelah mounted:", user.value);
+  console.log("User Roles setelah mounted:", roles.value);
+});
+
+const navMain = [
+  { title: "Agents", url: "/agents", icon: SquareTerminal },
+  { title: "Properties", url: "/properties", icon: SquareTerminal },
+  { title: "Categories", url: "/categories", icon: SquareTerminal },
+  {
+    title: "Roles & Permissions",
+    url: "/roles-permissions",
+    icon: SquareTerminal,
   },
-  navMain: [
-    {
-      title: "Agents",
-      url: "/agents",
-      icon: SquareTerminal,
-    },
-    {
-      title: "Properties",
-      url: "/properties",
-      icon: SquareTerminal,
-    },
-    {
-      title: "Categories",
-      url: "#",
-      icon: SquareTerminal,
-    },
-    {
-      title: "Roles & Permissions",
-      url: "#",
-      icon: SquareTerminal,
-    },
-    {
-      title: "Playground",
-      url: "#",
-      icon: SquareTerminal,
-      isActive: true,
-      items: [
-        {
-          title: "History",
-          url: "#",
-        },
-        {
-          title: "Starred",
-          url: "#",
-        },
-        {
-          title: "Settings",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Models",
-      url: "#",
-      icon: Bot,
-      items: [
-        {
-          title: "Genesis",
-          url: "#",
-        },
-        {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: BookOpen,
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
-        },
-      ],
-    },
-  ],
-};
+];
+
+const filteredNav = computed(() => {
+  console.log("Roles:", roles.value); // Debugging
+  if (roles.value.includes("agent")) {
+    console.log("Agent detected, filtering menu...");
+    return navMain.filter(
+      (item) => item.title === "Categories" || item.title === "Properties"
+    );
+  }
+  console.log("Admin/User detected, showing all menus...");
+  return navMain;
+});
 </script>

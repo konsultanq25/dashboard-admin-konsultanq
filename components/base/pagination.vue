@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Button } from "@/components/ui/button";
-import { ref } from "vue";
+import { ref, watch } from "vue";
 
 import {
   Pagination,
@@ -14,19 +14,15 @@ import {
 } from "@/components/ui/pagination";
 
 const props = defineProps({
-  total: {
+  totalPages: {
     type: Number,
     required: true,
   },
-  itemsPerPage: {
+  currentPage: {
     type: Number,
-    default: 10,
+    required: true,
   },
   siblingCount: {
-    type: Number,
-    default: 1,
-  },
-  defaultPage: {
     type: Number,
     default: 1,
   },
@@ -36,41 +32,63 @@ const props = defineProps({
   },
 });
 
-const currentPage = ref(props.defaultPage);
+const emit = defineEmits(["update:currentPage"]);
+
+const internalPage = ref(props.currentPage);
+
+watch(
+  () => props.currentPage,
+  (newPage) => {
+    internalPage.value = newPage;
+  }
+);
+
+const goToPage = (page: number) => {
+  if (page >= 1 && page <= props.totalPages) {
+    internalPage.value = page;
+    emit("update:currentPage", page);
+  }
+};
 </script>
 
 <template>
   <Pagination
     v-slot="{ page }"
-    :items-per-page="itemsPerPage"
-    :total="total"
+    :items-per-page="10"
+    :total="totalPages"
     :sibling-count="siblingCount"
     :show-edges="showEdges"
-    :default-page="defaultPage"
+    :default-page="currentPage"
   >
     <PaginationList v-slot="{ items }" class="flex items-center gap-1">
-      <PaginationFirst />
-      <PaginationPrev />
+      <PaginationFirst @click="goToPage(1)" />
+      <PaginationPrev
+        @click="goToPage(currentPage > 1 ? currentPage - 1 : 1)"
+      />
 
-      <template v-for="(item, index) in items">
+      <template v-for="(item, index) in items" :key="index">
         <PaginationListItem
           v-if="item.type === 'page'"
-          :key="index"
           :value="item.value"
           as-child
         >
           <Button
             class="w-10 h-10 p-0"
-            :variant="item.value === page ? 'default' : 'outline'"
+            :variant="item.value === currentPage ? 'default' : 'outline'"
+            @click="goToPage(item.value)"
           >
             {{ item.value }}
           </Button>
         </PaginationListItem>
-        <PaginationEllipsis v-else :key="item.type" :index="index" />
+        <PaginationEllipsis v-else :key="index" />
       </template>
 
-      <PaginationNext />
-      <PaginationLast />
+      <PaginationNext
+        @click="
+          goToPage(currentPage < totalPages ? currentPage + 1 : totalPages)
+        "
+      />
+      <PaginationLast @click="goToPage(totalPages)" />
     </PaginationList>
   </Pagination>
 </template>

@@ -30,9 +30,17 @@
 </template>
 
 <script lang="ts" setup>
+import { useAuthStore } from "@/stores/auth";
+import { onMounted } from "vue";
 const token = useCookie("session/token");
 
 const isLoggedIn = computed(() => !!token.value);
+
+const authStore = useAuthStore();
+
+onMounted(() => {
+  authStore.loadUserFromToken();
+});
 </script>
 
 <style lang="postcss" scoped>

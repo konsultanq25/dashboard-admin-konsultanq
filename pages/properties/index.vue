@@ -5,40 +5,76 @@ import { useRouter } from "vue-router";
 import { toast } from "~/components/ui/toast";
 
 const token = useCookie("session/token");
-const properties = ref([]);
 const isLoading = ref(true);
 const router = useRouter();
 const deletingId = ref<string | null>(null); // Menyimpan ID agen yang sedang dihapus
 const config = useRuntimeConfig();
+const properties = ref([]);
 const currentPage = ref(1);
-const itemsPerPage = 10;
+const itemsPerPage = ref(1); // Bisa diubah dari UI
 const totalItems = ref(0);
-const totalPages = ref(1);
+const page = ref(1);
+// Add these variables
+const siblingCount = ref(1);
+const showEdges = ref(true);
 
-const paginatedProperties = computed(() => properties.value);
+const totalPages = computed(() => {
+  return totalItems.value > 0
+    ? Math.ceil(totalItems.value / itemsPerPage.value)
+    : 1;
+});
 
-// Ambil daftar agen dari API
-const refreshProperties = async (page = 1) => {
+// Update the refreshProperties function to use correct query params
+const refreshProperties = async () => {
   isLoading.value = true;
   try {
-    const response = await $fetch(`/api/properties?page=${page}`, {
+    const response = await $fetch(`/api/properties`, {
       method: "GET",
       headers: {
         "x-api-key": config.apiKey,
       },
+      query: {
+        page: currentPage.value, // Use currentPage instead of page
+        per_page: itemsPerPage.value,
+      },
     });
 
-    console.log("API Response:", response);
+    console.log("Full API Response:", response);
+
+    if (response.meta) {
+      totalItems.value = response.meta.total || 0;
+      // Update current page from response if needed
+      currentPage.value = response.meta.page;
+      // Update items per page from response if needed
+      itemsPerPage.value = response.meta.per_page;
+      console.log("Total Items:", totalItems.value);
+    } else {
+      console.warn("Meta data not found in API response");
+    }
 
     properties.value = response.data;
-    totalItems.value = response.meta?.total || 0;
-    totalPages.value = response.meta?.last_page || 1;
-    isLoading.value = false;
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching properties:", error);
+  } finally {
     isLoading.value = false;
   }
 };
+
+// Add this function to handle page changes
+const goToPage = (pageNumber) => {
+  currentPage.value = pageNumber;
+  refreshProperties();
+};
+
+// Perbarui saat `currentPage` atau `itemsPerPage` berubah
+// Update the watcher to correctly refresh data
+watch(
+  [currentPage, itemsPerPage],
+  () => {
+    refreshProperties();
+  },
+  { immediate: true }
+);
 
 // Panggil data saat komponen dimuat
 onMounted(refreshProperties);
@@ -47,10 +83,6 @@ onMounted(refreshProperties);
 const tambahProperties = () => {
   router.push("/properties/create");
 };
-
-watch(currentPage, (newPage) => {
-  refreshProperties(newPage);
-});
 
 const deleteProperties = async (properties_id: string) => {
   deletingId.value = properties_id;
@@ -203,18 +235,18 @@ const deleteProperties = async (properties_id: string) => {
       </TableBody>
     </Table>
 
-    <!-- Pagination -->
     <Pagination
       v-slot="{ page }"
-      :items-per-page="10"
-      :total="totalPages"
+      :items-per-page="itemsPerPage"
+      :total="totalItems"
+      :sibling-count="siblingCount"
+      :show-edges="showEdges"
       :default-page="currentPage"
-      show-edges
     >
       <PaginationList v-slot="{ items }" class="flex items-center gap-1">
-        <PaginationFirst @click="refreshProperties(1)" />
+        <PaginationFirst @click="goToPage(1)" />
         <PaginationPrev
-          @click="refreshProperties(currentPage > 1 ? currentPage - 1 : 1)"
+          @click="goToPage(currentPage > 1 ? currentPage - 1 : 1)"
         />
 
         <template v-for="(item, index) in items" :key="index">
@@ -226,22 +258,20 @@ const deleteProperties = async (properties_id: string) => {
             <Button
               class="w-10 h-10 p-0"
               :variant="item.value === currentPage ? 'default' : 'outline'"
-              @click="refreshProperties(item.value)"
+              @click="goToPage(item.value)"
             >
               {{ item.value }}
             </Button>
           </PaginationListItem>
-          <PaginationEllipsis v-else :key="item.type" :index="index" />
+          <PaginationEllipsis v-else :key="index" />
         </template>
 
         <PaginationNext
           @click="
-            refreshProperties(
-              currentPage < totalPages ? currentPage + 1 : totalPages
-            )
+            goToPage(currentPage < totalPages ? currentPage + 1 : totalPages)
           "
         />
-        <PaginationLast @click="refreshProperties(totalPages)" />
+        <PaginationLast @click="goToPage(totalPages)" />
       </PaginationList>
     </Pagination>
   </div>

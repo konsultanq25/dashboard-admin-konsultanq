@@ -47,7 +47,7 @@ defineProps<{
           <SidebarMenuItem>
             <CollapsibleTrigger as-child>
               <SidebarMenuButton :tooltip="item.title">
-                <component :is="item.icon" v-if="item.icon" />
+                <Icon :name="item.icon" v-if="item.icon" />
                 <span>{{ item.title }}</span>
                 <ChevronRight
                   class="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
@@ -75,7 +75,7 @@ defineProps<{
         <SidebarMenuItem v-else>
           <SidebarMenuButton as-child :tooltip="item.title">
             <a :href="item.url">
-              <component :is="item.icon" v-if="item.icon" />
+              <Icon :name="item.icon" v-if="item.icon" />
               <span>{{ item.title }}</span>
             </a>
           </SidebarMenuButton>

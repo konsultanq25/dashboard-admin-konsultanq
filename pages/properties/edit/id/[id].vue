@@ -59,11 +59,6 @@ const formSchema = toTypedSchema(
       .array(z.string())
       .max(5, "You can upload up to 5 images"),
     categories: z.string().min(1, "Please select a category"),
-    province: z.string().min(1, "Please select a province"),
-    city: z.string().min(1, "Please select a city/regency"),
-    district: z.string().min(1, "Please select a district"),
-    village: z.string().min(1, "Please select a village"),
-    status: z.string().min(1, "Please select a property status"),
   })
 );
 
@@ -81,11 +76,6 @@ const { handleSubmit, defineField, errors, setFieldValue } = useForm({
     no_hp_pemilik: 628,
     upload_bukti_kepemilikan: [],
     categories: "",
-    province: "",
-    city: "",
-    district: "",
-    village: "",
-    status: "",
   },
 });
 
@@ -96,21 +86,6 @@ const [harga, hargaAttrs] = defineField("harga");
 const [namaPemilik, namaPemilikAttrs] = defineField("nama_pemilik");
 const [noHpPemilik, noHpPemilikAttrs] = defineField("no_hp_pemilik");
 const [slug, slugAttrs] = defineField("slug");
-const [province, provinceAttrs] = defineField("province");
-const [city, cityAttrs] = defineField("city");
-const [district, districtAttrs] = defineField("district");
-const [village, villageAttrs] = defineField("village");
-const [status, statusAttrs] = defineField("status");
-// Add these near your other ref() declarations
-const provinces = ref([]);
-const cities = ref([]);
-const districts = ref([]);
-const villages = ref([]);
-const propertyStatuses = ref([
-  { id: "sale", name: "For Sale" },
-  { id: "rent", name: "For Rent" },
-  { id: "sold", name: "Sold" },
-]);
 
 const isLoading = ref(false);
 const router = useRouter();
@@ -317,23 +292,8 @@ const updateFacilityValue = (facilityName: string, value: string) => {
     (item) => item.name === facilityName
   );
   if (index !== -1) {
-    // Create a completely new array with the updated object
-    const newProperties = [...properties.value];
-    newProperties[index] = {
-      name: facilityName,
-      icon: newProperties[index].icon,
-      value: value,
-    };
-
-    // Replace the entire array to trigger reactivity
-    properties.value = newProperties;
-
-    // Update the form field
-    setFieldValue("fasilitas", newProperties);
-
-    // Debug
-    console.log(`Updated ${facilityName} with value: ${value}`);
-    console.log("Current properties:", newProperties);
+    properties.value[index].value = value;
+    setFieldValue("fasilitas", properties.value);
   }
 };
 
@@ -345,17 +305,8 @@ const isFacilitySelected = (facilityName: string): boolean => {
 // Get facility value
 const getFacilityValue = (facilityName: string): string => {
   const facility = properties.value.find((item) => item.name === facilityName);
-  return facility && facility.value ? facility.value : "";
+  return facility?.value || "";
 };
-
-watch(
-  properties,
-  (newProperties) => {
-    setFieldValue("fasilitas", newProperties);
-    console.log("Properties changed:", newProperties);
-  },
-  { deep: true }
-);
 
 const normalizeHarga = (value: string | number) => {
   return typeof value === "string" ? parseInt(value, 10) : value;
@@ -376,17 +327,68 @@ watch(title, (newVal) => {
     setFieldValue("slug", ""); // Empty slug if title is empty
   }
 });
+
+const route = useRoute();
+
+onMounted(async () => {
+  const id = route.params.id as string;
+  isLoading.value = true;
+
+  try {
+    const response = await $fetch(`/api/properties/id/${id}`, {
+      method: "GET",
+      headers: {
+        "x-api-key": config.apiKey,
+      },
+    });
+
+    console.log("API Response:", response); // Debug log
+
+    if (response && response.data) {
+      const data = response.data;
+
+      setFieldValue("title", data.title);
+      console.log("Title:", data.title); // Debug log
+      setFieldValue("slug", data.slug);
+      console.log("Slug:", data.slug); // Debug log
+      setFieldValue("alamat", data.alamat);
+      console.log("Alamat:", data.alamat); // Debug log
+      setFieldValue("deskripsi", data.deskripsi);
+      console.log("Deskripsi:", data.deskripsi); // Debug log
+      setFieldValue("harga", data.harga);
+      console.log("Harga:", data.harga); // Debug log
+      setFieldValue("fasilitas", data.fasilitas || []);
+      console.log("Fasilitas:", data.fasilitas); // Debug log
+      setFieldValue("nama_pemilik", data.nama_pemilik);
+      console.log("Nama Pemilik:", data.nama_pemilik); // Debug log
+      setFieldValue("no_hp_pemilik", data.no_hp_pemilik);
+      console.log("No HP Pemilik:", data.no_hp_pemilik); // Debug log
+      setFieldValue("categories", data.categories || "");
+      console.log("Categories:", data.categories); // Debug log
+      setFieldValue("province", data.province || "");
+      console.log("Province:", data.province); // Debug log
+      setFieldValue("city", data.city || "");
+      console.log("City:", data.city); // Debug log
+      setFieldValue("district", data.district || "");
+      console.log("District:", data.district); // Debug log
+      setFieldValue("village", data.village || "");
+      console.log("Village:", data.village); // Debug log
+      setFieldValue("status", data.status || "");
+      console.log("Status:", data.status); // Debug log
+      images.value = data.images || [];
+      console.log("Images:", data.images); // Debug log
+      upload_bukti_kepemilikan.value = data.upload_bukti_kepemilikan || [];
+      console.log("Upload Bukti Kepemilikan:", data.upload_bukti_kepemilikan); // Debug log
+    }
+  } catch (error) {
+    console.error("Error fetching property:", error);
+  } finally {
+    isLoading.value = false;
+  }
+});
+
 const onSubmit = handleSubmit(async (values) => {
   console.log("Form submission started"); // Debug line to verify function is called
-  console.log("onSubmit called"); // Debug log
-  console.log("Form Values:", values); // Debug log
-
-  // Periksa token
-  if (!token.value) {
-    console.error("No authentication token found");
-    alert("You must be logged in to submit a property");
-    return;
-  }
 
   // Verify required fields
   if (!values.title || !values.alamat || !values.deskripsi || !values.harga) {
@@ -424,21 +426,18 @@ const onSubmit = handleSubmit(async (values) => {
       no_hp_pemilik: noHpPemilik.value,
       upload_bukti_kepemilikan: upload_bukti_kepemilikan.value,
       categories: categories.value,
-      province: province.value,
-      city: city.value,
-      district: district.value,
-      village: village.value,
-      status: status.value,
     };
 
     const requestBody = {
       content: content,
     };
 
+    const id = route.params.id as string;
+
     console.log("Request Body:", requestBody); // Debug: Periksa body
 
-    const response = await fetch("/api/properties", {
-      method: "POST",
+    const response = await fetch(`/api/properties/${id}`, {
+      method: "put",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token.value}`,
@@ -521,91 +520,6 @@ const onSubmit = handleSubmit(async (values) => {
             <span class="text-red-500 text-sm">{{ errors.alamat }}</span>
           </div>
 
-          <!-- Add this in the <template> section where appropriate -->
-          <!-- <div>
-            <Label for="province">Province</Label>
-            <Select v-model="province" v-bind="provinceAttrs">
-              <SelectTrigger>
-                <SelectValue placeholder="Select a Province" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Provinces</SelectLabel>
-                  <SelectItem
-                    v-for="item in provinces"
-                    :key="item.id"
-                    :value="item.id"
-                  >
-                    {{ item.name }}
-                  </SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <span class="text-red-500 text-sm">{{ errors.province }}</span>
-          </div>
-           -->
-          <div>
-            <Label for="provinsi">Provinsi</Label>
-            <Input
-              id="provinsi"
-              type="text"
-              v-model="province"
-              v-bind="provinceAttrs"
-            />
-          </div>
-
-          <div>
-            <Label for="kabupaten">Kabupaten/Kota</Label>
-            <Input
-              id="kabupaten"
-              type="text"
-              v-model="city"
-              v-bind="cityAttrs"
-            />
-          </div>
-
-          <div>
-            <Label for="kecamatan">Kecamatan</Label>
-            <Input
-              id="kecamatan"
-              type="text"
-              v-model="district"
-              v-bind="districtAttrs"
-            />
-          </div>
-
-          <div>
-            <Label for="keluaran">Kelurahan/Desa</Label>
-            <Input
-              id="keluaran"
-              type="text"
-              v-model="village"
-              v-bind="villageAttrs"
-            />
-          </div>
-
-          <div>
-            <Label for="status">Property Status</Label>
-            <Select v-model="status" v-bind="statusAttrs">
-              <SelectTrigger>
-                <SelectValue placeholder="Select Property Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Status</SelectLabel>
-                  <SelectItem
-                    v-for="item in propertyStatuses"
-                    :key="item.id"
-                    :value="item.id"
-                  >
-                    {{ item.name }}
-                  </SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <span class="text-red-500 text-sm">{{ errors.status }}</span>
-          </div>
-
           <div>
             <Label for="nama_pemilik">Nama Pemilik</Label>
             <Input
@@ -658,7 +572,7 @@ const onSubmit = handleSubmit(async (values) => {
                 <SelectGroup>
                   <SelectLabel>Categories</SelectLabel>
                   <SelectItem
-                    :value="item.slug"
+                    :value="item.name"
                     v-for="item in category"
                     :key="item.id"
                   >
@@ -729,15 +643,11 @@ const onSubmit = handleSubmit(async (values) => {
                   class="px-3 pb-3 pt-1"
                 >
                   <div class="flex items-center">
-                    <input
-                      type="text"
+                    <Input
                       :placeholder="facility.placeholder || ''"
                       :value="getFacilityValue(facility.name)"
-                      @input="
-                        (e) =>
-                          updateFacilityValue(facility.name, e.target.value)
-                      "
-                      class="w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                      @input="(e) => updateFacilityValue(facility.name, (e.target as HTMLInputElement).value)"
+                      class="text-sm"
                     />
                     <span
                       v-if="facility.unit"
@@ -852,7 +762,6 @@ const onSubmit = handleSubmit(async (values) => {
             </div>
           </div>
         </div>
-
         <Button
           @click.prevent="onSubmit"
           class="w-full mt-8"

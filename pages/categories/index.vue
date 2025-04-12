@@ -19,6 +19,8 @@ const token = useCookie("session/token");
 const categories = ref([]);
 const isLoading = ref(true);
 const router = useRouter();
+const route = useRoute();
+let categoriesId = route.params.id;
 const deletingId = ref<string | null>(null); // Menyimpan ID agen yang sedang dihapus
 const config = useRuntimeConfig();
 
@@ -51,6 +53,11 @@ const tambahCategories = () => {
   router.push("/categories/create");
 };
 
+const editCategories = (id) => {
+  categoriesId = id;
+  router.push(`/categories/edit/${categoriesId}`);
+};
+
 // Fungsi untuk menghapus agen
 const deleteCategories = async (categories_id: string) => {
   deletingId.value = categories_id;
@@ -80,6 +87,15 @@ const deleteCategories = async (categories_id: string) => {
     deletingId.value = null;
   }
 };
+
+const tableHeaders = [
+  { name: "No" },
+  { name: "Kategori" },
+  { name: "Slug" },
+  { name: "Icon" },
+  { name: "Edit" },
+  { name: "Delete" },
+];
 </script>
 
 <template>
@@ -89,20 +105,21 @@ const deleteCategories = async (categories_id: string) => {
     </div>
 
     <Table class="rounded-2xl border">
-      <TableCaption>Daftar agen yang terdaftar.</TableCaption>
+      <TableCaption>Daftar kategori yang terdaftar.</TableCaption>
       <TableHeader>
         <TableRow>
-          <TableHead>No</TableHead>
-          <TableHead>Nama Lengkap</TableHead>
-          <TableHead>Edit</TableHead>
-          <TableHead>Delete</TableHead>
+          <BaseHeader
+            :head="item.name"
+            v-for="(item, index) in tableHeaders"
+            :key="index"
+          />
         </TableRow>
       </TableHeader>
       <TableBody>
         <template v-if="isLoading">
           <TableRow v-for="n in 5" :key="n">
             <TableCell
-              colspan="4"
+              colspan="6"
               class="animate-pulse bg-gray-200 h-6"
             ></TableCell>
           </TableRow>
@@ -112,7 +129,11 @@ const deleteCategories = async (categories_id: string) => {
           <TableRow v-for="(item, index) in categories" :key="item.id">
             <TableCell>{{ index + 1 }}</TableCell>
             <TableCell>{{ item.name }}</TableCell>
+            <TableCell>{{ item.slug }}</TableCell>
             <TableCell>
+              <Icon :name="item.icon" size="24" />
+            </TableCell>
+            <TableCell @click.prevent="editCategories(item.id)">
               <Button variant="outline" size="icon">
                 <Icon name="lucide:pencil" size="16" />
               </Button>

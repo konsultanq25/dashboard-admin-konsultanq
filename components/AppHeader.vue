@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAuthStore } from "@/stores/auth";
 import { BadgeCheck, Bell, CreditCard, LogOut } from "lucide-vue-next";
 import type { Auth } from "~/@types";
 
@@ -19,17 +20,46 @@ const props = withDefaults(
   }
 );
 
+// Use the auth store for consistent user data across components
+const authStore = useAuthStore();
+const router = useRouter();
+const isLogoutDialogOpen = ref(false);
+const isLoading = ref(false);
+const token = useCookie("session/token");
+
+// For backward compatibility, still keep userDecode
 const userDecode = ref<Auth.Register>({});
+
+// Sync with auth store on mount
+onMounted(() => {
+  if (token.value) {
+    const decoded = decodeToken(token.value);
+    if (decoded) {
+      userDecode.value = decoded;
+
+      // Ensure auth store has the data too
+      if (!authStore.user) {
+        const userData = {
+          ...decoded,
+          roles: decoded.roles || [], // Ensure roles exist
+        };
+        authStore.setUser(userData);
+      }
+    }
+  }
+});
+
 const decodeToken = (accessToken: string) => {
   try {
-    const base64Url = accessToken.split(".")[1]; // Ambil payload JWT (Base64 URL Encoded)
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/"); // Sesuaikan format Base64
-    const decodedData = JSON.parse(atob(base64)); // Decode dan parse JSON
+    const base64Url = accessToken.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const decodedData = JSON.parse(atob(base64));
 
     return {
       name: decodedData.name || "Guest",
       email: decodedData.email || "guest@example.com",
       avatar: decodedData.avatar || "",
+      roles: decodedData.roles || [],
     };
   } catch (error) {
     console.error("Gagal mendekode token:", error);
@@ -37,38 +67,24 @@ const decodeToken = (accessToken: string) => {
   }
 };
 
-onMounted(() => {
-  if (token.value) {
-    const decoded = decodeToken(token.value);
-    if (decoded) {
-      userDecode.value = decoded;
-    }
-  }
-});
-
 const userInitials = computed(() => {
   if (!userDecode.value.name) return "G";
 
   const nameParts = userDecode.value.name.trim().split(" ");
-  const firstLetter = nameParts[0]?.charAt(0) || ""; // Huruf pertama nama depan
+  const firstLetter = nameParts[0]?.charAt(0) || "";
   const lastLetter =
-    nameParts.length > 1 ? nameParts[nameParts.length - 1].charAt(0) : ""; // Huruf pertama dari nama belakang
+    nameParts.length > 1 ? nameParts[nameParts.length - 1].charAt(0) : "";
 
   return `${firstLetter}${lastLetter}`.toUpperCase();
 });
-
-const router = useRouter();
-const isLogoutDialogOpen = ref(false);
-const isLoading = ref(false);
-const token = useCookie("session/token");
 
 const confirmLogout = () => {
   isLogoutDialogOpen.value = true;
 };
 
 const logout = async () => {
-  isLoading.value = true; // Aktifkan loading
-  isLogoutDialogOpen.value = false; // Tutup dialog konfirmasi
+  isLoading.value = true;
+  isLogoutDialogOpen.value = false;
 
   try {
     await fetch("/api/logout", {
@@ -78,13 +94,14 @@ const logout = async () => {
       },
     });
 
-    // Hapus token & data user dari cookie
-    const tokenCookie = useCookie("session/token");
-    const userCookie = useCookie("auth/user");
-    tokenCookie.value = null;
-    userCookie.value = null;
+    // Use auth store to clear user data
+    authStore.clearUser();
 
-    // Redirect ke halaman login
+    // Also clear token cookie
+    const tokenCookie = useCookie("session/token");
+    tokenCookie.value = null;
+
+    // Redirect to login
     router.push("/login");
   } catch (error) {
     console.error("Logout gagal", error);

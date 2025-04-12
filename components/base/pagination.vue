@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Button } from "@/components/ui/button";
-import { ref, watch } from "vue";
+import { computed, ref } from "vue";
 
 import {
   Pagination,
@@ -14,48 +14,52 @@ import {
 } from "@/components/ui/pagination";
 
 const props = defineProps({
-  totalPages: {
-    type: Number,
-    required: true,
-  },
   currentPage: {
     type: Number,
-    required: true,
+    default: 1
+  },
+  itemsPerPage: {
+    type: Number,
+    default: 10
+  },
+  totalItems: {
+    type: Number,
+    required: true
   },
   siblingCount: {
     type: Number,
-    default: 1,
+    default: 1
   },
   showEdges: {
     type: Boolean,
-    default: true,
-  },
+    default: true
+  }
 });
 
-const emit = defineEmits(["update:currentPage"]);
+const emit = defineEmits(['page-change']);
 
-const internalPage = ref(props.currentPage);
+// Computed property to calculate total pages
+const totalPages = computed(() => {
+  return props.totalItems > 0
+    ? Math.ceil(props.totalItems / props.itemsPerPage)
+    : 1;
+});
 
-watch(
-  () => props.currentPage,
-  (newPage) => {
-    internalPage.value = newPage;
-  }
-);
-
-const goToPage = (page: number) => {
-  if (page >= 1 && page <= props.totalPages) {
-    internalPage.value = page;
-    emit("update:currentPage", page);
-  }
+// Function to handle page changes
+const goToPage = (pageNumber) => {
+  if (pageNumber < 1) pageNumber = 1;
+  if (pageNumber > totalPages.value) pageNumber = totalPages.value;
+  
+  // Emit the page change event to parent component
+  emit('page-change', pageNumber);
 };
 </script>
 
 <template>
   <Pagination
     v-slot="{ page }"
-    :items-per-page="10"
-    :total="totalPages"
+    :items-per-page="itemsPerPage"
+    :total="totalItems"
     :sibling-count="siblingCount"
     :show-edges="showEdges"
     :default-page="currentPage"
@@ -84,9 +88,7 @@ const goToPage = (page: number) => {
       </template>
 
       <PaginationNext
-        @click="
-          goToPage(currentPage < totalPages ? currentPage + 1 : totalPages)
-        "
+        @click="goToPage(currentPage < totalPages ? currentPage + 1 : totalPages)"
       />
       <PaginationLast @click="goToPage(totalPages)" />
     </PaginationList>

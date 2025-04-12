@@ -13,7 +13,6 @@
 </template>
 
 <script setup lang="ts">
-
 const props = defineProps({
   title: { type: String, default: "Success" },
   message: { type: String, default: "Operation completed successfully." },
@@ -21,7 +20,10 @@ const props = defineProps({
 
 const isOpen = defineModel<boolean>({ default: false });
 
+const emit = defineEmits(["close"]);
+
 const closeDialog = () => {
   isOpen.value = false;
+  emit("close"); // <--- ini penting!
 };
 </script>

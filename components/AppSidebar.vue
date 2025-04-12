@@ -6,63 +6,99 @@
     <SidebarContent>
       <NavMain :items="filteredNav" />
     </SidebarContent>
-    <SidebarFooter>
+    <!-- <SidebarFooter>
       <NavUser :user="user" />
-    </SidebarFooter>
+    </SidebarFooter> -->
     <SidebarRail />
   </Sidebar>
 </template>
 
 <script setup lang="ts">
-import type { SidebarProps } from "@/components/ui/sidebar";
-import NavMain from "@/components/NavMain.vue";
-import NavUser from "@/components/NavUser.vue";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarRail,
-} from "@/components/ui/sidebar";
-import { SquareTerminal } from "lucide-vue-next";
-import { computed, onMounted } from "vue";
 import { useAuthStore } from "@/stores/auth";
+import { computed, onMounted, watch } from "vue";
 
-const props = withDefaults(defineProps<SidebarProps>(), {
-  collapsible: "icon",
+const props = defineProps({
+  // Any props passed to the Sidebar component
 });
 
 const authStore = useAuthStore();
 
-// Pakai computed agar selalu mendapatkan state terbaru dari Pinia
-const user = computed(() => authStore.user || {});
-const roles = computed(() => user.value.roles || []);
-
-onMounted(() => {
-  console.log("User Data setelah mounted:", user.value);
-  console.log("User Roles setelah mounted:", roles.value);
+// Create a reactive user object that updates when authStore.user changes
+const user = computed(() => {
+  return (
+    authStore.user || {
+      name: "Guest",
+      email: "guest@example.com",
+      avatar: "",
+      roles: [],
+    }
+  );
 });
 
+// Make roles reactive to update the menu as soon as roles change
+const roles = computed(() => user.value.roles || []);
+
+// Initialize user data on component mount
+onMounted(async () => {
+  console.log("Sidebar mounted: Loading user data if needed");
+  if (!authStore.user || Object.keys(authStore.user).length === 0) {
+    // Load user from token if no user data is available
+    await authStore.loadUserFromToken();
+    console.log("User loaded from token:", authStore.user);
+  }
+});
+
+// Menu items definition
 const navMain = [
-  { title: "Agents", url: "/agents", icon: SquareTerminal },
-  { title: "Properties", url: "/properties", icon: SquareTerminal },
-  { title: "Categories", url: "/categories", icon: SquareTerminal },
+  { title: "Dashboard", url: "/", icon: "lucide:house" },
+  { title: "Agents", url: "/agents", icon: "lucide:circle-user-round" },
   {
-    title: "Roles & Permissions",
-    url: "/roles-permissions",
-    icon: SquareTerminal,
+    title: "Properties",
+    url: "/properties",
+    icon: "material-symbols:home-work-outline",
+  },
+  { title: "Categories", url: "/categories", icon: "lucide:clipboard-list" },
+  { title: "Blog", url: "/blog", icon: "ri:blogger-line" },
+  // {
+  //   title: "Roles & Permissions",
+  //   url: "/roles-permissions",
+  //   icon: "lucide:mouse-pointer-2",
+  // },
+  { title: "User", url: "/user", icon: "lucide:users" },
+  { title: "Testimoni", url: "/testimoni", icon: "mdi:comment-quote-outline" },
+  {
+    title: "Promotions",
+    url: "/promotions",
+    icon: "lsicon:badge-promotion-outline",
+  },
+  {
+    title: "Contact Us",
+    url: "/contact-us",
+    icon: "material-symbols:contact-support-outline",
   },
 ];
 
+// Filter menu based on roles - reactive computed property
 const filteredNav = computed(() => {
-  console.log("Roles:", roles.value); // Debugging
+  console.log("Computing filteredNav with roles:", roles.value);
+
   if (roles.value.includes("agent")) {
-    console.log("Agent detected, filtering menu...");
+    console.log("Agent role detected, filtering menu...");
     return navMain.filter(
       (item) => item.title === "Categories" || item.title === "Properties"
     );
   }
-  console.log("Admin/User detected, showing all menus...");
+
+  console.log("Admin/User detected, showing all menu items...");
   return navMain;
 });
+
+// Watch for changes in the auth store
+watch(
+  () => authStore.user,
+  (newUser) => {
+    console.log("Auth user updated:", newUser);
+  },
+  { deep: true, immediate: true }
+);
 </script>

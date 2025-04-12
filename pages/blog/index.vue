@@ -1,32 +1,20 @@
 <script setup lang="ts">
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/toast";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 const token = useCookie("session/token");
-const agents = ref([]);
+const blog = ref([]);
 const isLoading = ref(true);
 const router = useRouter();
 const deletingId = ref<string | null>(null); // Menyimpan ID agen yang sedang dihapus
 const config = useRuntimeConfig();
 
 // Ambil daftar agen dari API
-const refreshAgents = async () => {
+const refreshBlog = async () => {
   isLoading.value = true;
   try {
-    const response = await $fetch("/api/agents", {
+    const response = await $fetch("/api/blogs", {
       method: "GET",
       headers: {
         "x-api-key": config.apiKey,
@@ -34,7 +22,7 @@ const refreshAgents = async () => {
     });
 
     setTimeout(() => {
-      agents.value = response.data;
+      blog.value = response.data;
       isLoading.value = false;
     }, 1000);
   } catch (error) {
@@ -44,19 +32,19 @@ const refreshAgents = async () => {
 };
 
 // Panggil data saat komponen dimuat
-onMounted(refreshAgents);
+onMounted(refreshBlog);
 
 // Fungsi untuk menambah agen
-const tambahAgents = () => {
-  router.push("/agents/create");
+const tambahBlog = () => {
+  router.push("/blog/create");
 };
 
 // Fungsi untuk menghapus agen
-const deleteAgents = async (agents_id: string) => {
-  deletingId.value = agents_id;
+const deleteBlogs = async (blogs_id: string) => {
+  deletingId.value = blogs_id;
 
   try {
-    await $fetch(`/api/agents/${agents_id}`, {
+    await $fetch(`/api/blogs/id/${blogs_id}`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${token.value}`,
@@ -68,7 +56,7 @@ const deleteAgents = async (agents_id: string) => {
       description: "Agent deleted successfully.",
     });
 
-    refreshAgents(); // Refresh daftar agen setelah penghapusan
+    refreshBlog(); // Refresh daftar agen setelah penghapusan
   } catch (error) {
     console.error(error);
     toast({
@@ -80,49 +68,89 @@ const deleteAgents = async (agents_id: string) => {
     deletingId.value = null;
   }
 };
+
+const tableHeaders = [
+  { name: "No" },
+  { name: "Title" },
+  { name: "Gambar Cover" },
+  { name: "Author" },
+  { name: "Status" },
+  { name: "Edit" },
+  { name: "Delete" },
+];
+
+// Edit Function
+const route = useRoute();
+let id = route.params.slug;
+
+const editBlog = (blog_id) => {
+  id = blog_id;
+  router.push(`/blog/edit/id/${id}`);
+};
 </script>
 
 <template>
   <div class="py-8 flex flex-col gap-4 items-center w-full max-w-screen-2xl">
     <div class="flex justify-end w-full">
-      <Button @click.prevent="tambahAgents">Tambah Agents</Button>
+      <Button @click.prevent="tambahBlog">Tambah Blog</Button>
     </div>
 
+    <!-- <pre>{{ blog }}</pre> -->
+
     <Table class="rounded-2xl border">
-      <TableCaption>Daftar agen yang terdaftar.</TableCaption>
+      <TableCaption>Daftar blog yang terdaftar.</TableCaption>
       <TableHeader>
         <TableRow>
-          <TableHead>No</TableHead>
-          <TableHead>Nama Lengkap</TableHead>
-          <TableHead>Email</TableHead>
-          <TableHead>Nomor Handphone</TableHead>
-          <TableHead>Edit</TableHead>
-          <TableHead>Delete</TableHead>
+          <BaseHeader
+            :head="item.name"
+            v-for="(item, index) in tableHeaders"
+            :key="index"
+          />
         </TableRow>
       </TableHeader>
       <TableBody>
         <template v-if="isLoading">
           <TableRow v-for="n in 5" :key="n">
             <TableCell
-              colspan="6"
+              colspan="8"
               class="animate-pulse bg-gray-200 h-6"
             ></TableCell>
           </TableRow>
         </template>
 
-        <template v-else-if="agents.length > 0">
-          <TableRow v-for="(item, index) in agents" :key="item.id">
+        <template v-else-if="blog.length > 0">
+          <TableRow v-for="(item, index) in blog" :key="item.id">
             <TableCell>{{ index + 1 }}</TableCell>
-            <TableCell>{{ item.name }}</TableCell>
-            <TableCell>{{ item.email }}</TableCell>
-            <TableCell>{{ item.phone }}</TableCell>
+            <TableCell>{{ item.content.title }}</TableCell>
             <TableCell>
-              <Button variant="outline" size="icon">
+              <div class="flex gap-2">
+                <template v-if="Array.isArray(item.content.image)">
+                  <img
+                    :src="`data:image/jpeg;base64,${item.content.image}`"
+                    class="w-16 h-16 object-cover rounded-md"
+                    alt="Property Image"
+                  />
+                </template>
+                <img
+                  v-else
+                  :src="`data:image/jpeg;base64,${item.content.image}`"
+                  class="w-16 h-16 object-cover rounded-md"
+                  alt="Property Image"
+                />
+              </div>
+            </TableCell>
+            <TableCell>{{ item.content.author }}</TableCell>
+            <TableCell>{{ item.content.status }}</TableCell>
+            <TableCell>
+              <Button
+                variant="outline"
+                size="icon"
+                @click.prevent="editBlog(item.id)"
+              >
                 <Icon name="lucide:pencil" size="16" />
               </Button>
             </TableCell>
             <TableCell>
-              <!-- AlertDialog untuk konfirmasi delete -->
               <AlertDialog>
                 <AlertDialogTrigger as-child>
                   <Button variant="destructive" size="icon">
@@ -131,15 +159,15 @@ const deleteAgents = async (agents_id: string) => {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Hapus Agen?</AlertDialogTitle>
+                    <AlertDialogTitle>Hapus Kategori?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Anda yakin ingin menghapus agen ini? Tindakan ini tidak
-                      dapat dibatalkan.
+                      Anda yakin ingin menghapus kategori ini? Tindakan ini
+                      tidak dapat dibatalkan.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Batal</AlertDialogCancel>
-                    <AlertDialogAction @click="deleteAgents(item.id)">
+                    <AlertDialogAction @click="deleteBlogs(item.id)">
                       <span v-if="deletingId === item.id">Loading...</span>
                       <span v-else>Hapus</span>
                     </AlertDialogAction>
@@ -152,8 +180,8 @@ const deleteAgents = async (agents_id: string) => {
 
         <template v-else>
           <TableRow>
-            <TableCell colspan="6" class="text-center text-gray-500">
-              Tidak ada agen yang terdaftar.
+            <TableCell colspan="8" class="text-center text-gray-500">
+              Tidak ada blog yang terdaftar.
             </TableCell>
           </TableRow>
         </template>

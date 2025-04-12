@@ -16,17 +16,18 @@ import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 const token = useCookie("session/token");
-const agents = ref([]);
+const promotions = ref([]); // Ganti testimoni ke promotions
 const isLoading = ref(true);
 const router = useRouter();
-const deletingId = ref<string | null>(null); // Menyimpan ID agen yang sedang dihapus
+const route = useRoute();
+const deletingId = ref<string | null>(null); // Menyimpan ID promotion yang sedang dihapus
 const config = useRuntimeConfig();
 
-// Ambil daftar agen dari API
-const refreshAgents = async () => {
+// Ambil daftar promotions dari API
+const refreshPromotions = async () => {
   isLoading.value = true;
   try {
-    const response = await $fetch("/api/agents", {
+    const response = await $fetch("/api/promotions", {
       method: "GET",
       headers: {
         "x-api-key": config.apiKey,
@@ -34,7 +35,7 @@ const refreshAgents = async () => {
     });
 
     setTimeout(() => {
-      agents.value = response.data;
+      promotions.value = response.data;
       isLoading.value = false;
     }, 1000);
   } catch (error) {
@@ -44,19 +45,19 @@ const refreshAgents = async () => {
 };
 
 // Panggil data saat komponen dimuat
-onMounted(refreshAgents);
+onMounted(refreshPromotions);
 
-// Fungsi untuk menambah agen
-const tambahAgents = () => {
-  router.push("/agents/create");
+// Fungsi untuk menambah promotion
+const tambahPromotion = () => {
+  router.push("/promotions/create");
 };
 
-// Fungsi untuk menghapus agen
-const deleteAgents = async (agents_id: string) => {
-  deletingId.value = agents_id;
+// Fungsi untuk menghapus promotion
+const deletePromotion = async (promotion_id: string) => {
+  deletingId.value = promotion_id;
 
   try {
-    await $fetch(`/api/agents/${agents_id}`, {
+    await $fetch(`/api/promotions/${promotion_id}`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${token.value}`,
@@ -65,15 +66,15 @@ const deleteAgents = async (agents_id: string) => {
 
     toast({
       title: "Success",
-      description: "Agent deleted successfully.",
+      description: "Promotion deleted successfully.",
     });
 
-    refreshAgents(); // Refresh daftar agen setelah penghapusan
+    refreshPromotions(); // Refresh daftar promotions setelah penghapusan
   } catch (error) {
     console.error(error);
     toast({
       title: "Error",
-      description: "Failed to delete agent.",
+      description: "Failed to delete promotion.",
       variant: "destructive",
     });
   } finally {
@@ -85,18 +86,17 @@ const deleteAgents = async (agents_id: string) => {
 <template>
   <div class="py-8 flex flex-col gap-4 items-center w-full max-w-screen-2xl">
     <div class="flex justify-end w-full">
-      <Button @click.prevent="tambahAgents">Tambah Agents</Button>
+      <Button @click.prevent="tambahPromotion">Tambah Promotion</Button>
     </div>
 
     <Table class="rounded-2xl border">
-      <TableCaption>Daftar agen yang terdaftar.</TableCaption>
+      <TableCaption>Daftar promotions yang tersedia.</TableCaption>
       <TableHeader>
         <TableRow>
           <TableHead>No</TableHead>
-          <TableHead>Nama Lengkap</TableHead>
-          <TableHead>Email</TableHead>
-          <TableHead>Nomor Handphone</TableHead>
-          <TableHead>Edit</TableHead>
+          <TableHead>Image</TableHead>
+          <TableHead>Alt Image</TableHead>
+          <!-- <TableHead>Edit</TableHead> -->
           <TableHead>Delete</TableHead>
         </TableRow>
       </TableHeader>
@@ -110,19 +110,32 @@ const deleteAgents = async (agents_id: string) => {
           </TableRow>
         </template>
 
-        <template v-else-if="agents.length > 0">
-          <TableRow v-for="(item, index) in agents" :key="item.id">
+        <template v-else-if="promotions.length > 0">
+          <TableRow v-for="(item, index) in promotions" :key="item.id">
             <TableCell>{{ index + 1 }}</TableCell>
-            <TableCell>{{ item.name }}</TableCell>
-            <TableCell>{{ item.email }}</TableCell>
-            <TableCell>{{ item.phone }}</TableCell>
+
+            <!-- Tampilkan gambar dari Base64 -->
             <TableCell>
-              <Button variant="outline" size="icon">
+              <img
+                :src="item.image"
+                :alt="item.alt_image"
+                class="w-20 h-20 object-cover rounded"
+              />
+            </TableCell>
+
+            <TableCell>{{ item.alt_image }}</TableCell>
+
+            <!-- <TableCell>
+              <Button
+                variant="outline"
+                size="icon"
+                @click="editPromotions(item.id)"
+              >
                 <Icon name="lucide:pencil" size="16" />
               </Button>
-            </TableCell>
+            </TableCell> -->
+
             <TableCell>
-              <!-- AlertDialog untuk konfirmasi delete -->
               <AlertDialog>
                 <AlertDialogTrigger as-child>
                   <Button variant="destructive" size="icon">
@@ -131,15 +144,15 @@ const deleteAgents = async (agents_id: string) => {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Hapus Agen?</AlertDialogTitle>
+                    <AlertDialogTitle>Hapus Promotion?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Anda yakin ingin menghapus agen ini? Tindakan ini tidak
-                      dapat dibatalkan.
+                      Anda yakin ingin menghapus promotion ini? Tindakan ini
+                      tidak dapat dibatalkan.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Batal</AlertDialogCancel>
-                    <AlertDialogAction @click="deleteAgents(item.id)">
+                    <AlertDialogAction @click="deletePromotion(item.id)">
                       <span v-if="deletingId === item.id">Loading...</span>
                       <span v-else>Hapus</span>
                     </AlertDialogAction>
@@ -153,7 +166,7 @@ const deleteAgents = async (agents_id: string) => {
         <template v-else>
           <TableRow>
             <TableCell colspan="6" class="text-center text-gray-500">
-              Tidak ada agen yang terdaftar.
+              Tidak ada promotions yang tersedia.
             </TableCell>
           </TableRow>
         </template>

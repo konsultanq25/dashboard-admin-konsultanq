@@ -7,24 +7,14 @@ import { toast } from "~/components/ui/toast";
 const token = useCookie("session/token");
 const isLoading = ref(true);
 const router = useRouter();
-const deletingId = ref<string | null>(null); // Menyimpan ID agen yang sedang dihapus
+const deletingId = ref<string | null>(null);
 const config = useRuntimeConfig();
 const properties = ref([]);
 const currentPage = ref(1);
-const itemsPerPage = ref(1); // Bisa diubah dari UI
+const itemsPerPage = ref(10); // Default per page
 const totalItems = ref(0);
-const page = ref(1);
-// Add these variables
-const siblingCount = ref(1);
-const showEdges = ref(true);
 
-const totalPages = computed(() => {
-  return totalItems.value > 0
-    ? Math.ceil(totalItems.value / itemsPerPage.value)
-    : 1;
-});
-
-// Update the refreshProperties function to use correct query params
+// Function to refresh properties with pagination
 const refreshProperties = async () => {
   isLoading.value = true;
   try {
@@ -34,7 +24,7 @@ const refreshProperties = async () => {
         "x-api-key": config.apiKey,
       },
       query: {
-        page: currentPage.value, // Use currentPage instead of page
+        page: currentPage.value,
         per_page: itemsPerPage.value,
       },
     });
@@ -60,30 +50,21 @@ const refreshProperties = async () => {
   }
 };
 
-// Add this function to handle page changes
-const goToPage = (pageNumber) => {
-  currentPage.value = pageNumber;
+// Handler for page changes from pagination component
+const handlePageChange = (newPage) => {
+  currentPage.value = newPage;
   refreshProperties();
 };
 
-// Perbarui saat `currentPage` atau `itemsPerPage` berubah
-// Update the watcher to correctly refresh data
-watch(
-  [currentPage, itemsPerPage],
-  () => {
-    refreshProperties();
-  },
-  { immediate: true }
-);
-
-// Panggil data saat komponen dimuat
+// Load data on component mount
 onMounted(refreshProperties);
 
-// Fungsi untuk menambah agen
+// Function to add property
 const tambahProperties = () => {
   router.push("/properties/create");
 };
 
+// Function to delete property
 const deleteProperties = async (properties_id: string) => {
   deletingId.value = properties_id;
 
@@ -97,7 +78,7 @@ const deleteProperties = async (properties_id: string) => {
 
     toast({
       title: "Success",
-      description: "Agent deleted successfully.",
+      description: "Property deleted successfully.",
     });
 
     refreshProperties();
@@ -105,12 +86,16 @@ const deleteProperties = async (properties_id: string) => {
     console.error(error);
     toast({
       title: "Error",
-      description: "Failed to delete agent.",
+      description: "Failed to delete property.",
       variant: "destructive",
     });
   } finally {
     deletingId.value = null;
   }
+};
+
+const editProperties = (properties_id: string) => {
+  router.push(`/properties/edit/id/${properties_id}`);
 };
 </script>
 
@@ -119,8 +104,6 @@ const deleteProperties = async (properties_id: string) => {
     <div class="flex justify-end w-full">
       <Button @click.prevent="tambahProperties">Tambah Properties</Button>
     </div>
-
-    <!-- <pre>{{ properties }}</pre> -->
 
     <Table class="rounded-2xl border">
       <TableCaption>Daftar properti yang terdaftar.</TableCaption>
@@ -167,7 +150,7 @@ const deleteProperties = async (properties_id: string) => {
                 </template>
                 <img
                   v-else
-                  :src="`data:image/jpeg;base64,${item.image}`"
+                  :src="`data:image/jpeg;base64,${item.images}`"
                   class="w-16 h-16 object-cover rounded-md"
                   alt="Property Image"
                 />
@@ -193,7 +176,11 @@ const deleteProperties = async (properties_id: string) => {
               </div>
             </TableCell>
             <TableCell>
-              <Button variant="outline" size="icon">
+              <Button
+                variant="outline"
+                size="icon"
+                @click.prevent="editProperties(item.id)"
+              >
                 <Icon name="lucide:pencil" size="16" />
               </Button>
             </TableCell>
@@ -206,10 +193,10 @@ const deleteProperties = async (properties_id: string) => {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Hapus Agen?</AlertDialogTitle>
+                    <AlertDialogTitle>Hapus Properti?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Anda yakin ingin menghapus agen ini? Tindakan ini tidak
-                      dapat dibatalkan.
+                      Anda yakin ingin menghapus properti ini? Tindakan ini
+                      tidak dapat dibatalkan.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -227,7 +214,7 @@ const deleteProperties = async (properties_id: string) => {
 
         <template v-else>
           <TableRow>
-            <TableCell colspan="6" class="text-center text-gray-500">
+            <TableCell colspan="9" class="text-center text-gray-500">
               Tidak ada properti yang terdaftar.
             </TableCell>
           </TableRow>
@@ -235,44 +222,14 @@ const deleteProperties = async (properties_id: string) => {
       </TableBody>
     </Table>
 
-    <Pagination
-      v-slot="{ page }"
+    <!-- Use the new pagination component -->
+    <BasePagination
+      :current-page="currentPage"
       :items-per-page="itemsPerPage"
-      :total="totalItems"
-      :sibling-count="siblingCount"
-      :show-edges="showEdges"
-      :default-page="currentPage"
-    >
-      <PaginationList v-slot="{ items }" class="flex items-center gap-1">
-        <PaginationFirst @click="goToPage(1)" />
-        <PaginationPrev
-          @click="goToPage(currentPage > 1 ? currentPage - 1 : 1)"
-        />
-
-        <template v-for="(item, index) in items" :key="index">
-          <PaginationListItem
-            v-if="item.type === 'page'"
-            :value="item.value"
-            as-child
-          >
-            <Button
-              class="w-10 h-10 p-0"
-              :variant="item.value === currentPage ? 'default' : 'outline'"
-              @click="goToPage(item.value)"
-            >
-              {{ item.value }}
-            </Button>
-          </PaginationListItem>
-          <PaginationEllipsis v-else :key="index" />
-        </template>
-
-        <PaginationNext
-          @click="
-            goToPage(currentPage < totalPages ? currentPage + 1 : totalPages)
-          "
-        />
-        <PaginationLast @click="goToPage(totalPages)" />
-      </PaginationList>
-    </Pagination>
+      :total-items="totalItems"
+      :sibling-count="1"
+      :show-edges="true"
+      @page-change="handlePageChange"
+    />
   </div>
 </template>

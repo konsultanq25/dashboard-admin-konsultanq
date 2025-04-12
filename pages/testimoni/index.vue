@@ -16,17 +16,16 @@ import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 const token = useCookie("session/token");
-const agents = ref([]);
+const testimoni = ref([]);
 const isLoading = ref(true);
 const router = useRouter();
-const deletingId = ref<string | null>(null); // Menyimpan ID agen yang sedang dihapus
+const deletingId = ref<string | null>(null);
 const config = useRuntimeConfig();
 
-// Ambil daftar agen dari API
-const refreshAgents = async () => {
+const refreshTestimoni = async () => {
   isLoading.value = true;
   try {
-    const response = await $fetch("/api/agents", {
+    const response = await $fetch("/api/testimoni", {
       method: "GET",
       headers: {
         "x-api-key": config.apiKey,
@@ -34,7 +33,7 @@ const refreshAgents = async () => {
     });
 
     setTimeout(() => {
-      agents.value = response.data;
+      testimoni.value = response.data;
       isLoading.value = false;
     }, 1000);
   } catch (error) {
@@ -43,20 +42,17 @@ const refreshAgents = async () => {
   }
 };
 
-// Panggil data saat komponen dimuat
-onMounted(refreshAgents);
+onMounted(refreshTestimoni);
 
-// Fungsi untuk menambah agen
-const tambahAgents = () => {
-  router.push("/agents/create");
+const tambahTestimoni = () => {
+  router.push("/testimoni/create");
 };
 
-// Fungsi untuk menghapus agen
-const deleteAgents = async (agents_id: string) => {
-  deletingId.value = agents_id;
+const deleteTestimoni = async (testimoni_id: string) => {
+  deletingId.value = testimoni_id;
 
   try {
-    await $fetch(`/api/agents/${agents_id}`, {
+    await $fetch(`/api/testimoni/${testimoni_id}`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${token.value}`,
@@ -65,15 +61,15 @@ const deleteAgents = async (agents_id: string) => {
 
     toast({
       title: "Success",
-      description: "Agent deleted successfully.",
+      description: "Testimoni deleted successfully.",
     });
 
-    refreshAgents(); // Refresh daftar agen setelah penghapusan
+    refreshTestimoni();
   } catch (error) {
     console.error(error);
     toast({
       title: "Error",
-      description: "Failed to delete agent.",
+      description: "Failed to delete testimoni.",
       variant: "destructive",
     });
   } finally {
@@ -85,17 +81,19 @@ const deleteAgents = async (agents_id: string) => {
 <template>
   <div class="py-8 flex flex-col gap-4 items-center w-full max-w-screen-2xl">
     <div class="flex justify-end w-full">
-      <Button @click.prevent="tambahAgents">Tambah Agents</Button>
+      <Button @click.prevent="tambahTestimoni">Tambah Testimoni</Button>
     </div>
 
-    <Table class="rounded-2xl border">
-      <TableCaption>Daftar agen yang terdaftar.</TableCaption>
+    <Table class="rounded-2xl border w-full">
+      <TableCaption>Daftar testimoni yang tersedia.</TableCaption>
       <TableHeader>
         <TableRow>
           <TableHead>No</TableHead>
-          <TableHead>Nama Lengkap</TableHead>
-          <TableHead>Email</TableHead>
-          <TableHead>Nomor Handphone</TableHead>
+          <TableHead>Nama</TableHead>
+          <TableHead>Pesan</TableHead>
+          <TableHead>Foto</TableHead>
+          <TableHead>Alt Gambar</TableHead>
+          <TableHead>Alamat</TableHead>
           <TableHead>Edit</TableHead>
           <TableHead>Delete</TableHead>
         </TableRow>
@@ -104,25 +102,32 @@ const deleteAgents = async (agents_id: string) => {
         <template v-if="isLoading">
           <TableRow v-for="n in 5" :key="n">
             <TableCell
-              colspan="6"
+              colspan="9"
               class="animate-pulse bg-gray-200 h-6"
             ></TableCell>
           </TableRow>
         </template>
 
-        <template v-else-if="agents.length > 0">
-          <TableRow v-for="(item, index) in agents" :key="item.id">
+        <template v-else-if="testimoni.length > 0">
+          <TableRow v-for="(item, index) in testimoni" :key="item.id">
             <TableCell>{{ index + 1 }}</TableCell>
             <TableCell>{{ item.name }}</TableCell>
-            <TableCell>{{ item.email }}</TableCell>
-            <TableCell>{{ item.phone }}</TableCell>
+            <TableCell>{{ item.message }}</TableCell>
+            <TableCell>
+              <img
+                :src="`/storage/${item.image}`"
+                :alt="item.alt_image"
+                class="h-12 w-12 object-cover rounded"
+              />
+            </TableCell>
+            <TableCell>{{ item.alt_image || "-" }}</TableCell>
+            <TableCell>{{ item.alamat }}</TableCell>
             <TableCell>
               <Button variant="outline" size="icon">
                 <Icon name="lucide:pencil" size="16" />
               </Button>
             </TableCell>
             <TableCell>
-              <!-- AlertDialog untuk konfirmasi delete -->
               <AlertDialog>
                 <AlertDialogTrigger as-child>
                   <Button variant="destructive" size="icon">
@@ -131,15 +136,15 @@ const deleteAgents = async (agents_id: string) => {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Hapus Agen?</AlertDialogTitle>
+                    <AlertDialogTitle>Hapus Testimoni?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Anda yakin ingin menghapus agen ini? Tindakan ini tidak
-                      dapat dibatalkan.
+                      Anda yakin ingin menghapus testimoni ini? Tindakan ini
+                      tidak dapat dibatalkan.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Batal</AlertDialogCancel>
-                    <AlertDialogAction @click="deleteAgents(item.id)">
+                    <AlertDialogAction @click="deleteTestimoni(item.id)">
                       <span v-if="deletingId === item.id">Loading...</span>
                       <span v-else>Hapus</span>
                     </AlertDialogAction>
@@ -152,8 +157,8 @@ const deleteAgents = async (agents_id: string) => {
 
         <template v-else>
           <TableRow>
-            <TableCell colspan="6" class="text-center text-gray-500">
-              Tidak ada agen yang terdaftar.
+            <TableCell colspan="9" class="text-center text-gray-500">
+              Tidak ada testimoni yang tersedia.
             </TableCell>
           </TableRow>
         </template>

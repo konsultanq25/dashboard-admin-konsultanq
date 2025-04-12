@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { toTypedSchema } from "@vee-validate/zod";
 import { useForm } from "vee-validate";
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import * as z from "zod";
 
 // Schema validasi dengan Zod
@@ -12,6 +12,10 @@ const formSchema = toTypedSchema(
     icon: z.string().min(1, "Icon is required"),
   })
 );
+
+// State untuk category
+const category = ref(null);
+const categoryId = ref("");
 
 // Setup Vee-Validate
 const { handleSubmit, defineField, errors, setValues, setFieldValue } = useForm(
@@ -26,6 +30,7 @@ const [icon, iconAttrs] = defineField("icon");
 
 // State untuk feedback
 const isLoading = ref(false);
+const isLoadingData = ref(true);
 const showDialog = ref(false);
 const dialogTitle = ref("");
 const dialogMessage = ref("");
@@ -33,6 +38,7 @@ const token = useCookie("session/token");
 const router = useRouter();
 const route = useRoute();
 const isRedirecting = ref(false);
+const config = useRuntimeConfig();
 
 // Icon options
 const iconOptions = [
@@ -45,6 +51,57 @@ const iconOptions = [
   { value: "mdi:sale", label: "Dijual" },
   { value: "material-symbols:release-alert", label: "Disewa" },
 ];
+
+// Fetch category data on mount
+onMounted(async () => {
+  // Get ID from route parameter
+  categoryId.value = route.params.id as string;
+
+  if (categoryId.value) {
+    try {
+      isLoadingData.value = true;
+      // Fetch category data - use the correct endpoint for GET
+      const response = await $fetch(`/api/categories`, {
+        method: "GET",
+        headers: {
+          "x-api-key": config.apiKey,
+        },
+      });
+
+      // With $fetch, the response is already parsed
+      // Find the category with matching ID in the data array
+      if (response && response.data && Array.isArray(response.data)) {
+        const categoryData = response.data.find(
+          (item) => item.id === categoryId.value
+        );
+
+        if (categoryData) {
+          category.value = categoryData;
+
+          // Set form values
+          setValues({
+            name: categoryData.name,
+            slug: categoryData.slug || generateSlug(categoryData.name), // Use existing slug or generate one
+            icon: categoryData.icon,
+          });
+        } else {
+          throw new Error("Category not found");
+        }
+      } else {
+        throw new Error("Invalid data structure");
+      }
+    } catch (error) {
+      console.error("Error fetching category:", error);
+      dialogTitle.value = "Error";
+      dialogMessage.value = "An unexpected error occurred while loading data.";
+      showDialog.value = true;
+    } finally {
+      isLoadingData.value = false;
+    }
+  } else {
+    isLoadingData.value = false;
+  }
+});
 
 // Auto-generate slug when name changes
 const generateSlug = (title: string) => {
@@ -68,33 +125,26 @@ watch(name, (newVal) => {
 const onSubmit = handleSubmit(async (values) => {
   isLoading.value = true;
   try {
-    const response = await fetch("/api/categories", {
-      method: "POST",
+    const result = await $fetch(`/api/categories/${categoryId.value}`, {
+      method: "PUT",
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${token.value}`,
       },
-      body: JSON.stringify(values),
+      body: values, // $fetch will stringify this automatically
     });
 
-    const result = await response.json();
-    isLoading.value = false;
-
-    if (response.ok) {
-      dialogTitle.value = "Category Created";
-      dialogMessage.value = "Category has been created successfully.";
-      showDialog.value = true;
-    } else {
-      dialogTitle.value = "Failed to Create Category";
-      dialogMessage.value =
-        result.message || "Something went wrong, please try again.";
+    if (result) {
+      dialogTitle.value = "Update Successful";
+      dialogMessage.value = "Category has been updated successfully.";
       showDialog.value = true;
     }
   } catch (error) {
-    isLoading.value = false;
-    dialogTitle.value = "Error";
-    dialogMessage.value = "An unexpected error occurred.";
+    console.error("Error updating category:", error);
+    dialogTitle.value = "Update Failed";
+    dialogMessage.value = "Something went wrong, please try again.";
     showDialog.value = true;
+  } finally {
+    isLoading.value = false;
   }
 });
 
@@ -102,7 +152,7 @@ const onSubmit = handleSubmit(async (values) => {
 const closeDialog = () => {
   showDialog.value = false;
 
-  if (dialogTitle.value === "Category Created") {
+  if (dialogTitle.value === "Update Successful") {
     isRedirecting.value = true; // Tampilkan loading sebelum redirect
     setTimeout(() => {
       router.push("/categories");
@@ -113,12 +163,13 @@ const closeDialog = () => {
 
 <template>
   <div class="flex justify-center items-center h-full">
-    <Card class="w-[450px]">
+    <!-- Show loading while fetching data -->
+    <BaseLoading v-if="isLoadingData" message="Loading category data..." />
+
+    <Card v-else class="w-[450px]">
       <CardHeader>
-        <CardTitle>Create Category</CardTitle>
-        <CardDescription>
-          Add a new property category with appropriate icon.
-        </CardDescription>
+        <CardTitle>Edit Category</CardTitle>
+        <CardDescription> Update category information </CardDescription>
       </CardHeader>
       <CardContent>
         <form class="space-y-4" @submit="onSubmit">
@@ -164,10 +215,18 @@ const closeDialog = () => {
             <input type="hidden" v-model="icon" v-bind="iconAttrs" />
             <span class="text-red-500 text-sm">{{ errors.icon }}</span>
           </div>
-          <div>
+          <div class="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              class="w-full"
+              @click="router.push('/categories')"
+            >
+              Cancel
+            </Button>
             <Button type="submit" class="w-full" :disabled="isLoading">
               <span v-if="isLoading">Processing...</span>
-              <span v-else>Create Category</span>
+              <span v-else>Update Category</span>
             </Button>
           </div>
         </form>
@@ -175,8 +234,11 @@ const closeDialog = () => {
     </Card>
   </div>
 
-  <!-- BaseLoading -->
-  <BaseLoading v-if="isLoading" message="Creating category..." />
+  <!-- BaseLoading for submission -->
+  <BaseLoading v-if="isLoading" message="Updating category..." />
+
+  <!-- Redirect loading -->
+  <BaseLoading v-if="isRedirecting" message="Redirecting to categories..." />
 
   <!-- BaseDialog -->
   <BaseDialog

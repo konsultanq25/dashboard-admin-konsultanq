@@ -24,12 +24,22 @@ let categoriesId = route.params.id;
 const deletingId = ref<string | null>(null); // Menyimpan ID agen yang sedang dihapus
 const config = useRuntimeConfig();
 
+const pagination = ref({
+  perPage: 10,
+  currentPage: 1,
+  totalItems: 0,
+});
+
 // Ambil daftar agen dari API
 const refreshCategories = async () => {
   isLoading.value = true;
   try {
     const response = await $fetch("/api/categories", {
       method: "GET",
+      query: {
+        page: pagination.value.currentPage,
+        per_page: pagination.value.perPage,
+      },
       headers: {
         "x-api-key": config.apiKey,
       },
@@ -37,6 +47,8 @@ const refreshCategories = async () => {
 
     setTimeout(() => {
       categories.value = response.data;
+      pagination.value.totalItems = response.meta.total;
+      pagination.value.currentPage = response.meta.page;
       isLoading.value = false;
     }, 1000);
   } catch (error) {
@@ -96,6 +108,11 @@ const tableHeaders = [
   { name: "Edit" },
   { name: "Delete" },
 ];
+
+const onPageChange = (page: number) => {
+  pagination.value.currentPage = page;
+  refreshCategories(); // Ini otomatis ambil `pagination.currentPage` yang baru
+};
 </script>
 
 <template>
@@ -127,7 +144,9 @@ const tableHeaders = [
 
         <template v-else-if="categories.length > 0">
           <TableRow v-for="(item, index) in categories" :key="item.id">
-            <TableCell>{{ index + 1 }}</TableCell>
+            <TableCell>{{
+              (pagination.currentPage - 1) * pagination.perPage + index + 1
+            }}</TableCell>
             <TableCell>{{ item.name }}</TableCell>
             <TableCell>{{ item.slug }}</TableCell>
             <TableCell>
@@ -175,5 +194,13 @@ const tableHeaders = [
         </template>
       </TableBody>
     </Table>
+
+    <!-- Pagination -->
+    <BasePagination
+      :current-page="pagination.currentPage"
+      :items-per-page="pagination.perPage"
+      :total-items="pagination.totalItems"
+      @page-change="onPageChange"
+    />
   </div>
 </template>

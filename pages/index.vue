@@ -40,6 +40,17 @@ const config = useRuntimeConfig();
 const blogs = ref([]);
 const properties = ref([]);
 
+useHead({
+  title: "Dashboard",
+  meta: [
+    {
+      name: "description",
+      content:
+        "Dashboard utama untuk mengelola seluruh konten dan data website Anda.",
+    },
+  ],
+});
+
 onMounted(async () => {
   try {
     const response = await $fetch("/api/blogs", {

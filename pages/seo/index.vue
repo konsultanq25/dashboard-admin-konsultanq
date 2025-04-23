@@ -13,39 +13,43 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 const token = useCookie("session/token");
-const testimoni = ref([]);
+const seoData = ref([]);
 const isLoading = ref(true);
 const router = useRouter();
+const route = useRoute();
+let seoId = route.params.id;
 const deletingId = ref<string | null>(null);
 const config = useRuntimeConfig();
 
+// Pagination state
 const pagination = ref({
-  perPage: 10,
+  perPage: 5,
   currentPage: 1,
   totalItems: 0,
 });
 
-const refreshTestimoni = async () => {
+// Ambil daftar SEO dari API
+const refreshSEO = async (page = 1) => {
   isLoading.value = true;
   try {
-    const response = await $fetch("/api/testimoni", {
+    const response = await $fetch("/api/seo", {
       method: "GET",
-      query: {
-        page: pagination.value.currentPage,
-        per_page: pagination.value.perPage,
-      },
       headers: {
         "x-api-key": config.apiKey,
+      },
+      query: {
+        page,
+        per_page: pagination.value.perPage, // Tambahkan pagination ke query string
       },
     });
 
     setTimeout(() => {
-      testimoni.value = response.data;
-      pagination.value.totalItems = response.meta.total;
-      pagination.value.currentPage = response.meta.page;
+      seoData.value = response.data;
+      pagination.value.totalItems = response.meta.total; // Update totalItems
+      pagination.value.currentPage = response.meta.page; // Update currentPage
       isLoading.value = false;
     }, 1000);
   } catch (error) {
@@ -54,21 +58,26 @@ const refreshTestimoni = async () => {
   }
 };
 
-onMounted(refreshTestimoni);
+onMounted(() => {
+  refreshSEO(); // Refresh dengan page 1 saat pertama kali mount
+});
 
-const tambahTestimoni = () => {
-  router.push("/testimoni/create");
+// Fungsi untuk menambah SEO
+const tambahSEO = () => {
+  router.push("/seo/create");
 };
 
-const editTestimoni = (testimoni_id: string) => {
-  router.push(`/testimoni/edit/${testimoni_id}`);
+const editSEO = (id: string) => {
+  seoId = id;
+  router.push(`/seo/edit/${seoId}`);
 };
 
-const deleteTestimoni = async (testimoni_id: string) => {
-  deletingId.value = testimoni_id;
+// Fungsi untuk menghapus SEO
+const deleteSEO = async (seo_id: string) => {
+  deletingId.value = seo_id;
 
   try {
-    await $fetch(`/api/testimoni/${testimoni_id}`, {
+    await $fetch(`/api/seo/${seo_id}`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${token.value}`,
@@ -77,15 +86,15 @@ const deleteTestimoni = async (testimoni_id: string) => {
 
     toast({
       title: "Success",
-      description: "Testimoni deleted successfully.",
+      description: "SEO deleted successfully.",
     });
 
-    refreshTestimoni();
+    refreshSEO(pagination.value.currentPage); // Refresh data dengan halaman yang aktif
   } catch (error) {
     console.error(error);
     toast({
       title: "Error",
-      description: "Failed to delete testimoni.",
+      description: "Failed to delete SEO.",
       variant: "destructive",
     });
   } finally {
@@ -93,64 +102,67 @@ const deleteTestimoni = async (testimoni_id: string) => {
   }
 };
 
+const tableHeaders = [
+  { name: "No" },
+  { name: "Slug" },
+  { name: "Title" },
+  { name: "OG Title" },
+  { name: "OG Image" },
+  { name: "Edit" },
+  { name: "Delete" },
+];
+
+// Fungsi untuk menghandle perubahan halaman
 const onPageChange = (page: number) => {
-  pagination.value.currentPage = page;
-  refreshTestimoni(); // Ini otomatis ambil `pagination.currentPage` yang baru
+  pagination.value.currentPage = page; // Update currentPage
+  refreshSEO(page); // Panggil API dengan halaman baru
 };
 </script>
 
 <template>
   <div class="py-8 flex flex-col gap-4 items-center w-full max-w-screen-2xl">
     <div class="flex justify-end w-full">
-      <Button @click.prevent="tambahTestimoni">Tambah Testimoni</Button>
+      <Button @click.prevent="tambahSEO">Tambah SEO</Button>
     </div>
 
-    <Table class="rounded-2xl border w-full">
-      <TableCaption>Daftar testimoni yang tersedia.</TableCaption>
+    <Table class="rounded-2xl border">
+      <TableCaption>Daftar SEO yang terdaftar.</TableCaption>
       <TableHeader>
         <TableRow>
-          <TableHead>No</TableHead>
-          <TableHead>Nama</TableHead>
-          <TableHead>Pesan</TableHead>
-          <TableHead>Foto</TableHead>
-          <TableHead>Alt Gambar</TableHead>
-          <TableHead>Alamat</TableHead>
-          <TableHead>Edit</TableHead>
-          <TableHead>Delete</TableHead>
+          <BaseHeader
+            :head="item.name"
+            v-for="(item, index) in tableHeaders"
+            :key="index"
+          />
         </TableRow>
       </TableHeader>
       <TableBody>
         <template v-if="isLoading">
           <TableRow v-for="n in 5" :key="n">
             <TableCell
-              colspan="9"
+              colspan="7"
               class="animate-pulse bg-gray-200 h-6"
             ></TableCell>
           </TableRow>
         </template>
 
-        <template v-else-if="testimoni.length > 0">
-          <TableRow v-for="(item, index) in testimoni" :key="item.id">
+        <template v-else-if="seoData.length > 0">
+          <TableRow v-for="(item, index) in seoData" :key="item.id">
             <TableCell>{{
               (pagination.currentPage - 1) * pagination.perPage + index + 1
             }}</TableCell>
-            <TableCell>{{ item.name }}</TableCell>
-            <TableCell>{{ item.message }}</TableCell>
+            <TableCell>{{ item.page_slug }}</TableCell>
+            <TableCell>{{ item.title }}</TableCell>
+            <TableCell>{{ item.og_title }}</TableCell>
             <TableCell>
               <img
-                :src="`/storage/${item.image}`"
-                :alt="item.alt_image"
-                class="h-12 w-12 object-cover rounded"
+                :src="`/storage/${item.og_image}`"
+                alt="og image"
+                class="w-10 h-10 object-cover rounded"
               />
             </TableCell>
-            <TableCell>{{ item.alt_image || "-" }}</TableCell>
-            <TableCell>{{ item.alamat }}</TableCell>
-            <TableCell>
-              <Button
-                variant="outline"
-                size="icon"
-                @click="editTestimoni(item.id)"
-              >
+            <TableCell @click.prevent="editSEO(item.id)">
+              <Button variant="outline" size="icon">
                 <Icon name="lucide:pencil" size="16" />
               </Button>
             </TableCell>
@@ -163,15 +175,15 @@ const onPageChange = (page: number) => {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Hapus Testimoni?</AlertDialogTitle>
+                    <AlertDialogTitle>Hapus SEO?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Anda yakin ingin menghapus testimoni ini? Tindakan ini
+                      Anda yakin ingin menghapus data SEO ini? Tindakan ini
                       tidak dapat dibatalkan.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Batal</AlertDialogCancel>
-                    <AlertDialogAction @click="deleteTestimoni(item.id)">
+                    <AlertDialogAction @click="deleteSEO(item.id)">
                       <span v-if="deletingId === item.id">Loading...</span>
                       <span v-else>Hapus</span>
                     </AlertDialogAction>
@@ -184,8 +196,8 @@ const onPageChange = (page: number) => {
 
         <template v-else>
           <TableRow>
-            <TableCell colspan="9" class="text-center text-gray-500">
-              Tidak ada testimoni yang tersedia.
+            <TableCell colspan="7" class="text-center text-gray-500">
+              Tidak ada data SEO yang terdaftar.
             </TableCell>
           </TableRow>
         </template>

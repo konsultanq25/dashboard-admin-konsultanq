@@ -22,12 +22,22 @@ const router = useRouter();
 const deletingId = ref<string | null>(null); // Menyimpan ID agen yang sedang dihapus
 const config = useRuntimeConfig();
 
+const pagination = ref({
+  perPage: 10,
+  currentPage: 1,
+  totalItems: 0,
+});
+
 // Ambil daftar agen dari API
 const refreshAgents = async () => {
   isLoading.value = true;
   try {
     const response = await $fetch("/api/agents", {
       method: "GET",
+      query: {
+        page: pagination.value.currentPage,
+        per_page: pagination.value.perPage,
+      },
       headers: {
         "x-api-key": config.apiKey,
       },
@@ -35,8 +45,10 @@ const refreshAgents = async () => {
 
     setTimeout(() => {
       agents.value = response.data;
+      pagination.value.totalItems = response.meta.total;
+      pagination.value.currentPage = response.meta.page;
       isLoading.value = false;
-    }, 1000);
+    }, 500);
   } catch (error) {
     console.error(error);
     isLoading.value = false;
@@ -80,6 +92,25 @@ const deleteAgents = async (agents_id: string) => {
     deletingId.value = null;
   }
 };
+
+const editAgents = (agents_id: string) => {
+  router.push(`/agents/edit/${agents_id}`);
+};
+
+const onPageChange = (page: number) => {
+  pagination.value.currentPage = page;
+  refreshAgents(); // Ini otomatis ambil `pagination.currentPage` yang baru
+};
+
+useHead({
+  title: "Daftar Agen",
+  meta: [
+    {
+      name: "description",
+      content: "Daftar agen yang terdaftar di sistem.",
+    },
+  ],
+});
 </script>
 
 <template>
@@ -112,12 +143,19 @@ const deleteAgents = async (agents_id: string) => {
 
         <template v-else-if="agents.length > 0">
           <TableRow v-for="(item, index) in agents" :key="item.id">
-            <TableCell>{{ index + 1 }}</TableCell>
+            <TableCell>{{
+              (pagination.currentPage - 1) * pagination.perPage + index + 1
+            }}</TableCell>
+
             <TableCell>{{ item.name }}</TableCell>
             <TableCell>{{ item.email }}</TableCell>
             <TableCell>{{ item.phone }}</TableCell>
             <TableCell>
-              <Button variant="outline" size="icon">
+              <Button
+                variant="outline"
+                size="icon"
+                @click="editAgents(item.id)"
+              >
                 <Icon name="lucide:pencil" size="16" />
               </Button>
             </TableCell>
@@ -159,5 +197,13 @@ const deleteAgents = async (agents_id: string) => {
         </template>
       </TableBody>
     </Table>
+
+    <!-- Pagination -->
+    <BasePagination
+      :current-page="pagination.currentPage"
+      :items-per-page="pagination.perPage"
+      :total-items="pagination.totalItems"
+      @page-change="onPageChange"
+    />
   </div>
 </template>

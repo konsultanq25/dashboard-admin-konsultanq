@@ -20,6 +20,8 @@
     "@vueuse/core": "^13.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "file-saver": "^2.0.5",
+    "jszip": "^3.10.1",
     "lucide-vue-next": "^0.479.0",
     "nuxt": "^3.16.0",
     "nuxt-maplibre": "1.1.1",

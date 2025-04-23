@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { Button } from "@/components/ui/button";
+import { saveAs } from "file-saver";
+import JSZip from "jszip";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "~/components/ui/toast";
@@ -97,18 +99,127 @@ const deleteProperties = async (properties_id: string) => {
 const editProperties = (properties_id: string) => {
   router.push(`/properties/edit/id/${properties_id}`);
 };
+
+const exportToZipWithCSV = async () => {
+  if (!properties.value.length) return;
+
+  const zip = new JSZip();
+  const csvRows = [
+    ["nama_pemilik", "no_hp_pemilik", "images", "upload_bukti_kepemilikan"],
+  ];
+
+  const selectedItems = properties.value.filter((item) =>
+    selectedProperties.value.includes(item.id)
+  );
+
+  for (const [index, item] of selectedItems.entries()) {
+    const imagePaths: string[] = [];
+    const buktiPaths: string[] = [];
+
+    if (selectedProperties.value.length === 0) {
+      toast({
+        title: "Pilih Data",
+        description: "Silakan pilih properti yang ingin diunduh.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // ✅ Handle images
+    const images = Array.isArray(item.images) ? item.images : [item.images];
+    for (let i = 0; i < images.length; i++) {
+      const base64 = images[i];
+      const fileName = `images/${item.slug || "property"}-${index + 1}-${
+        i + 1
+      }.jpg`;
+      const binary = atob(base64);
+      const byteArray = new Uint8Array(binary.length);
+      for (let j = 0; j < binary.length; j++) {
+        byteArray[j] = binary.charCodeAt(j);
+      }
+      zip.file(fileName, byteArray);
+      imagePaths.push(fileName);
+    }
+
+    // ✅ Handle bukti
+    const buktis = Array.isArray(item.upload_bukti_kepemilikan)
+      ? item.upload_bukti_kepemilikan
+      : [item.upload_bukti_kepemilikan];
+    for (let i = 0; i < buktis.length; i++) {
+      const base64 = buktis[i];
+      const fileName = `bukti/${item.slug || "property"}-${index + 1}-${
+        i + 1
+      }.jpg`;
+      const binary = atob(base64);
+      const byteArray = new Uint8Array(binary.length);
+      for (let j = 0; j < binary.length; j++) {
+        byteArray[j] = binary.charCodeAt(j);
+      }
+      zip.file(fileName, byteArray);
+      buktiPaths.push(fileName);
+    }
+
+    csvRows.push([
+      item.nama_pemilik || "",
+      item.no_hp_pemilik || "",
+      imagePaths.join(" | "),
+      buktiPaths.join(" | "),
+    ]);
+  }
+
+  // 📝 Buat CSV file dari rows
+  const csvContent = csvRows
+    .map((row) => row.map((cell) => `"${cell}"`).join(","))
+    .join("\n");
+  zip.file("properties.csv", csvContent);
+
+  // 💾 Generate dan download ZIP
+  const blob = await zip.generateAsync({ type: "blob" });
+  saveAs(blob, "exported-properties.zip");
+};
+
+const selectedProperties = ref<string[]>([]);
+
+const toggleSelect = (id: string) => {
+  if (selectedProperties.value.includes(id)) {
+    selectedProperties.value = selectedProperties.value.filter(
+      (pid) => pid !== id
+    );
+  } else {
+    selectedProperties.value.push(id);
+  }
+};
+
+const isSelected = (id: string) => selectedProperties.value.includes(id);
 </script>
 
 <template>
   <div class="py-8 flex flex-col gap-4 items-center w-full max-w-screen-2xl">
-    <div class="flex justify-end w-full">
+    <div class="flex gap-4 justify-end w-full">
       <Button @click.prevent="tambahProperties">Tambah Properties</Button>
+      <Button @click="exportToZipWithCSV">Download CSV</Button>
     </div>
 
     <Table class="rounded-2xl border">
       <TableCaption>Daftar properti yang terdaftar.</TableCaption>
       <TableHeader>
         <TableRow>
+          <TableHead>
+            <input
+              type="checkbox"
+              :checked="selectedProperties.length === properties.length"
+              @change="
+                (e) => {
+                  if (e.target.checked) {
+                    selectedProperties = properties.map((p) => p.id);
+                  } else {
+                    selectedProperties = [];
+                  }
+                }
+              "
+            />
+          </TableHead>
+
           <TableHead>No</TableHead>
           <TableHead>Slug</TableHead>
           <TableHead>Nama Properti</TableHead>
@@ -124,7 +235,7 @@ const editProperties = (properties_id: string) => {
         <template v-if="isLoading">
           <TableRow v-for="n in 5" :key="n">
             <TableCell
-              colspan="9"
+              colspan="10"
               class="animate-pulse bg-gray-200 h-6"
             ></TableCell>
           </TableRow>
@@ -132,6 +243,14 @@ const editProperties = (properties_id: string) => {
 
         <template v-else-if="properties && properties.length > 0">
           <TableRow v-for="(item, index) in properties" :key="item.id">
+            <TableCell>
+              <input
+                type="checkbox"
+                :checked="isSelected(item.id)"
+                @change="() => toggleSelect(item.id)"
+              />
+            </TableCell>
+
             <TableCell>{{ index + 1 }}</TableCell>
             <TableCell>{{ item.slug }}</TableCell>
             <TableCell>{{ item.title }}</TableCell>

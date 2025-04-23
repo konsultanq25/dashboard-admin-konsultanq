@@ -76,6 +76,11 @@ const navMain = [
     url: "/contact-us",
     icon: "material-symbols:contact-support-outline",
   },
+  {
+    title: "SEO",
+    url: "/seo",
+    icon: "tabler:seo",
+  },
 ];
 
 // Filter menu based on roles - reactive computed property

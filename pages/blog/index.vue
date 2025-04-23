@@ -16,6 +16,10 @@ const refreshBlog = async () => {
   try {
     const response = await $fetch("/api/blogs", {
       method: "GET",
+      query: {
+        page: pagination.value.currentPage,
+        per_page: pagination.value.perPage,
+      },
       headers: {
         "x-api-key": config.apiKey,
       },
@@ -23,6 +27,8 @@ const refreshBlog = async () => {
 
     setTimeout(() => {
       blog.value = response.data;
+      pagination.value.totalItems = response.meta.total;
+      pagination.value.currentPage = response.meta.page;
       isLoading.value = false;
     }, 1000);
   } catch (error) {
@@ -30,6 +36,12 @@ const refreshBlog = async () => {
     isLoading.value = false;
   }
 };
+
+const pagination = ref({
+  perPage: 10,
+  currentPage: 1,
+  totalItems: 0,
+});
 
 // Panggil data saat komponen dimuat
 onMounted(refreshBlog);
@@ -87,6 +99,11 @@ const editBlog = (blog_id) => {
   id = blog_id;
   router.push(`/blog/edit/id/${id}`);
 };
+
+const onPageChange = (page: number) => {
+  pagination.value.currentPage = page;
+  refreshBlog(); // Ini otomatis ambil `pagination.currentPage` yang baru
+};
 </script>
 
 <template>
@@ -120,7 +137,9 @@ const editBlog = (blog_id) => {
 
         <template v-else-if="blog.length > 0">
           <TableRow v-for="(item, index) in blog" :key="item.id">
-            <TableCell>{{ index + 1 }}</TableCell>
+            <TableCell>{{
+              (pagination.currentPage - 1) * pagination.perPage + index + 1
+            }}</TableCell>
             <TableCell>{{ item.content.title }}</TableCell>
             <TableCell>
               <div class="flex gap-2">
@@ -187,5 +206,13 @@ const editBlog = (blog_id) => {
         </template>
       </TableBody>
     </Table>
+
+    <!-- Pagination -->
+    <BasePagination
+      :current-page="pagination.currentPage"
+      :items-per-page="pagination.perPage"
+      :total-items="pagination.totalItems"
+      @page-change="onPageChange"
+    />
   </div>
 </template>

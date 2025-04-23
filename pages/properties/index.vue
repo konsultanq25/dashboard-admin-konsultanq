@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Button } from "@/components/ui/button";
-import { saveAs } from "file-saver";
+import FileSaver from "file-saver";
 import JSZip from "jszip";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -175,7 +175,7 @@ const exportToZipWithCSV = async () => {
 
   // 💾 Generate dan download ZIP
   const blob = await zip.generateAsync({ type: "blob" });
-  saveAs(blob, "exported-properties.zip");
+  FileSaver.saveAs(blob, "exported-properties.zip");
 };
 
 const selectedProperties = ref<string[]>([]);

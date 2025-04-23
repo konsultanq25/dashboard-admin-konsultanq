@@ -42,17 +42,20 @@ const getSeo = ref();
 const config = useRuntimeConfig();
 const route = useRoute();
 
+const originalOgImage = ref(""); // simpan original path
+
 onMounted(async () => {
   isLoading.value = true;
   try {
-    const reponse = await $fetch(`/api/seo/${route.params.id}`, {
+    const response = await $fetch(`/api/seo/${route.params.id}`, {
       method: "GET",
       headers: {
         "x-api-key": config.apiKey,
       },
     });
 
-    getSeo.value = reponse.data;
+    getSeo.value = response.data;
+
     page_slug.value = getSeo.value.page_slug;
     title.value = getSeo.value.title;
     description.value = getSeo.value.description;
@@ -60,6 +63,7 @@ onMounted(async () => {
     og_title.value = getSeo.value.og_title;
     og_description.value = getSeo.value.og_description;
     og_image.value = getSeo.value.og_image;
+    originalOgImage.value = getSeo.value.og_image;
     meta_author.value = getSeo.value.meta_author;
     meta_robots.value = getSeo.value.meta_robots;
   } catch (error) {
@@ -86,24 +90,48 @@ const handleOgImageUpload = (e: Event) => {
 const onSubmit = handleSubmit(async (values) => {
   isLoading.value = true;
 
-  const payload = {
+  const isOgImageBase64 = isBase64(values.og_image || "");
+  const finalOgImage = isOgImageBase64 ? values.og_image : null;
+
+  // Jika ada gambar baru (base64), gunakan gambar baru
+  if (isOgImageBase64) {
+    finalOgImage = values.og_image;
+  }
+
+  // Pastikan format gambar valid jika ada perubahan gambar
+  if (
+    finalOgImage &&
+    !isOgImageBase64 &&
+    !finalOgImage.startsWith("og_images/")
+  ) {
+    dialogTitle.value = "Failed";
+    dialogMessage.value = "Format gambar tidak valid.";
+    showDialog.value = true;
+    isLoading.value = false;
+    return;
+  }
+
+  const payload: Record<string, any> = {
     page_slug: values.page_slug,
     title: values.title || null,
     description: values.description || null,
     keywords: values.keywords || null,
     og_title: values.og_title || null,
     og_description: values.og_description || null,
-    og_image: values.og_image || null,
     meta_author: values.meta_author || null,
     meta_robots: values.meta_robots || null,
   };
 
+  if (finalOgImage) {
+    payload.og_image = finalOgImage;
+  }
+
   try {
     const response = await fetch(`/api/seo/${route.params.id}`, {
-      method: "put",
+      method: "PUT",
       headers: {
         Authorization: `Bearer ${token.value}`,
-        "Content-Type": "application/json", // ✅ WAJIB!
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
     });
@@ -113,7 +141,7 @@ const onSubmit = handleSubmit(async (values) => {
 
     if (response.ok) {
       dialogTitle.value = "Success";
-      dialogMessage.value = "SEO berhasil ditambahkan.";
+      dialogMessage.value = "SEO berhasil diperbarui.";
       showDialog.value = true;
     } else {
       dialogTitle.value = "Failed";
@@ -133,6 +161,10 @@ const closeDialog = () => {
   if (dialogTitle.value === "Success") {
     router.push("/seo");
   }
+};
+
+const isBase64 = (str: string) => {
+  return str.startsWith("data:image");
 };
 </script>
 
@@ -231,7 +263,7 @@ const closeDialog = () => {
             />
             <img
               v-if="og_image"
-              :src="og_image"
+              :src="isBase64(og_image) ? og_image : `/storage/${og_image}`"
               class="max-w-full rounded mt-2"
             />
             <span class="text-red-500 text-sm">{{ errors.og_image }}</span>
